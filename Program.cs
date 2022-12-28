@@ -1,11 +1,14 @@
-﻿using Wave.Nodes;
+﻿using Wave.Binding;
+using Wave.Binding.BoundNodes;
+using Wave.Nodes;
 
 namespace Wave
 {
-    internal class Program
+    internal static class Program
     {
         static void Main()
         {
+            bool showTree = false;
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
@@ -15,23 +18,40 @@ namespace Wave
                 if (string.IsNullOrWhiteSpace(line))
                     continue;
 
+                if (line.ToLower() == "#tree")
+                {
+                    showTree = !showTree;
+                    continue;
+                }
+                else if (line.ToLower() == "#cls")
+                {
+                    Console.Clear();
+                    continue;
+                }
+
                 SyntaxTree syntaxTree = SyntaxTree.Parse(line);
+                Binder binder = new();
+                BoundExpr boundExpr = binder.BindExpr(syntaxTree.Root);
+                string[] diagnostics = syntaxTree.Diagnostics.Concat(binder.Diagnostics).ToArray();
 
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                Print(syntaxTree.Root);
-                Console.ResetColor();
+                if (showTree)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Print(syntaxTree.Root);
+                    Console.ResetColor();
+                }
 
-                if (syntaxTree.Diagnostics.Any())
+                if (diagnostics.Any())
                 {
                     Console.ForegroundColor = ConsoleColor.DarkRed;
-                    foreach (string diagnostic in syntaxTree.Diagnostics)
-                        Console.WriteLine(diagnostic);
+                    foreach (string d in diagnostics)
+                        Console.WriteLine(d);
 
                     Console.ResetColor();
                 }
                 else
                 {
-                    Evaluator evaluator = new(syntaxTree.Root);
+                    Evaluator evaluator = new(boundExpr);
                     Console.WriteLine(evaluator.Evaluate());
                 }
             }

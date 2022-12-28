@@ -34,45 +34,51 @@ namespace Wave
             return new(_diagnostics, expr, eofToken);
         }
 
-        public ExprNode ParseExpr() => ParseTerm();
-        public ExprNode ParseTerm()
+        public ExprNode ParseExpr(ushort parentPrecedence = 0)
         {
-            ExprNode left = ParseFactor();
-            while (Current.Kind == SyntaxKind.Plus || Current.Kind == SyntaxKind.Minus)
+            ExprNode left;
+            ushort unOpPrec = Current.Kind.GetUnOpPrecedence();
+            if (unOpPrec != 0 && unOpPrec >= parentPrecedence)
             {
                 Token op = Advance();
-                ExprNode right = ParseFactor();
+                left = new UnaryExpr(op, ParseExpr(unOpPrec));
+            }
+            else
+                left = ParsePrimaryExpr();
+
+            while (true)
+            {
+                ushort precendence = Current.Kind.GetBinOpPrecedence();
+                if (precendence <= parentPrecedence)
+                    break;
+
+                Token op = Advance();
+                ExprNode right = ParseExpr(precendence);
                 left = new BinaryExpr(left, op, right);
             }
 
             return left;
         }
 
-        public ExprNode ParseFactor()
-        {
-            ExprNode left = ParsePrimaryExpr();
-            while (Current.Kind == SyntaxKind.Star || Current.Kind == SyntaxKind.Slash || Current.Kind == SyntaxKind.Mod)
-            {
-                Token op = Advance();
-                ExprNode right = ParsePrimaryExpr();
-                left = new BinaryExpr(left, op, right);
-            }
-
-            return left;
-        }
 
         private ExprNode ParsePrimaryExpr()
         {
-            if (Current.Kind == SyntaxKind.LParen)
+            switch (Current.Kind)
             {
-                Token lParen = Advance();
-                ExprNode expr = ParseExpr();
-                Token rParen = Match(SyntaxKind.RParen);
-                return new GroupingExpr(lParen, expr, rParen);
+                case SyntaxKind.LParen:
+                    {
+                        Token lParen = Advance();
+                        ExprNode expr = ParseExpr();
+                        Token rParen = Match(SyntaxKind.RParen);
+                        return new GroupingExpr(lParen, expr, rParen);
+                    }
+                case SyntaxKind.True:
+                case SyntaxKind.False:
+                    return new LiteralExpr(Current, Advance().Kind == SyntaxKind.True);
             }
 
-            Token number = Match(SyntaxKind.Number);
-            return new NumberExpr(number);
+            Token number = Match(SyntaxKind.Int);
+            return new LiteralExpr(number);
         }
 
         private Token Match(SyntaxKind kind)

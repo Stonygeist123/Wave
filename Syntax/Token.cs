@@ -5,7 +5,6 @@ namespace Wave
     public enum SyntaxKind
     {
         // Token
-        Number,
         Space,
         Plus,
         Minus,
@@ -14,17 +13,31 @@ namespace Wave
         Mod,
         LParen,
         RParen,
+        Bang,
+        LogicAnd,
+        LogicOr,
+        EqEq,
+        NotEq,
         Bad,
         Eof,
 
+        // Literals
+        Int,
+        Float,
+        Identifier,
+
+        // Keywords
+        True,
+        False,
+
         // Expr
-        NumberExpr,
+        LiteralExpr,
         BinaryExpr,
         UnaryExpr,
         GroupingExpr
     }
 
-    internal class Token : Node
+    public class Token : Node
     {
         public Token(SyntaxKind kind, int position, string lexeme, object? value = null)
         {

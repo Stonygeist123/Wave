@@ -1,0 +1,44 @@
+﻿namespace Wave.Binding.BoundNodes
+{
+    public abstract class BoundExpr : BoundNode
+    {
+        public abstract Type Type { get; }
+    }
+
+    public sealed class BoundLiteral : BoundExpr
+    {
+        public override Type Type => Value.GetType();
+        public override BoundNodeKind Kind => BoundNodeKind.LiteralExpr;
+        public object Value { get; }
+        public BoundLiteral(object value) => Value = value;
+    }
+
+    public sealed class BoundUnary : BoundExpr
+    {
+        public override Type Type => Op.ResultType;
+        public override BoundNodeKind Kind => BoundNodeKind.UnaryExpr;
+        public BoundUnOperator Op { get; }
+        public BoundExpr Operand { get; }
+        public BoundUnary(BoundUnOperator op, BoundExpr operand)
+        {
+            Op = op;
+            Operand = operand;
+        }
+    }
+
+    public sealed class BoundBinary : BoundExpr
+    {
+        public override Type Type => Op.ResultType;
+        public override BoundNodeKind Kind => BoundNodeKind.BinaryExpr;
+        public BoundExpr Left { get; }
+        public BoundBinOperator Op { get; }
+        public BoundExpr Right { get; private set; }
+
+        public BoundBinary(BoundExpr left, BoundBinOperator op, BoundExpr right)
+        {
+            Left = left;
+            Op = op;
+            Right = right;
+        }
+    }
+}

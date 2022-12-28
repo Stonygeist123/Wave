@@ -1,36 +1,60 @@
-﻿using Wave.Nodes;
+﻿using Wave.Binding.BoundNodes;
 
 namespace Wave
 {
     internal class Evaluator
     {
-        private readonly ExprNode _root;
-        public Evaluator(ExprNode root) => _root = root;
+        private readonly BoundExpr _root;
+        public Evaluator(BoundExpr root) => _root = root;
 
-        public int Evaluate() => EvaluateExpr(_root);
-        private int EvaluateExpr(ExprNode expr)
+        public object Evaluate() => EvaluateExpr(_root);
+        private object EvaluateExpr(BoundExpr expr)
         {
-            if (expr is NumberExpr n)
-                return (int?)n.Token.Value ?? 0;
-            if (expr is GroupingExpr g)
-                return EvaluateExpr(g.Expr);
-            else if (expr is BinaryExpr b)
+            switch (expr)
             {
-                int left = EvaluateExpr(b.Left);
-                int right = EvaluateExpr(b.Right);
+                case BoundLiteral l:
+                    return l.Value ?? 0;
+                case BoundUnary u:
+                    {
+                        object v = EvaluateExpr(u.Operand);
+                        return u.Op.Kind switch
+                        {
+                            BoundUnOpKind.Plus => (int)v,
+                            BoundUnOpKind.Minus => -(int)v,
+                            BoundUnOpKind.Bang => !(bool)v,
+                            _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
+                        };
+                    }
+                case BoundBinary b:
+                    {
+                        object left = EvaluateExpr(b.Left);
+                        object right = EvaluateExpr(b.Right);
 
-                return (b.Op.Kind) switch
-                {
-                    SyntaxKind.Plus => left + right,
-                    SyntaxKind.Minus => left - right,
-                    SyntaxKind.Star => left * right,
-                    SyntaxKind.Slash => left / right,
-                    SyntaxKind.Mod => left % right,
-                    _ => throw new Exception($"Unexpected binary operator \"{b.Op.Kind}\".")
-                };
+                        return b.Op.Kind switch
+                        {
+                            BoundBinOpKind.Plus => (int)left + (int)right,
+                            BoundBinOpKind.Minus => (int)left - (int)right,
+                            BoundBinOpKind.Star => (int)left * (int)right,
+                            BoundBinOpKind.Slash => (int)left / (int)right,
+                            BoundBinOpKind.Mod => (int)left % (int)right,
+                            BoundBinOpKind.LogicAnd => (bool)left && (bool)right,
+                            BoundBinOpKind.LogicOr => (bool)left || (bool)right,
+                            BoundBinOpKind.EqEq => Equals(left, right),
+                            BoundBinOpKind.NotEq => !Equals(left, right),
+                            _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                        };
+                    }
             }
 
             throw new Exception($"Unexpected expression.");
+        }
+
+        private static new bool Equals(object left, object right)
+        {
+            if (left == null || right == null)
+                return false;
+
+            return left.Equals(right);
         }
     }
 }

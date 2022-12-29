@@ -69,7 +69,6 @@
         public Token LParen { get; }
         public ExprNode Expr { get; }
         public Token RParen { get; }
-
         public GroupingExpr(Token lParen, ExprNode _expr, Token rParen)
         {
             LParen = lParen;
@@ -81,6 +80,35 @@
             yield return LParen;
             yield return Expr;
             yield return RParen;
+        }
+    }
+
+    public sealed class NameExpr : ExprNode
+    {
+        public override SyntaxKind Kind => SyntaxKind.NameExpr;
+        public Token Identifier { get; }
+        public NameExpr(Token identifier) => Identifier = identifier;
+        public override IEnumerable<Node> GetChildren()
+        {
+            yield return Identifier;
+        }
+    }
+
+    public sealed class AssignmentExpr : ExprNode
+    {
+        public override SyntaxKind Kind => SyntaxKind.NameExpr;
+        public Token Identifier { get; }
+        public ExprNode Value { get; }
+        public AssignmentExpr(Token identifier, ExprNode value)
+        {
+            Identifier = identifier;
+            Value = value;
+        }
+
+        public override IEnumerable<Node> GetChildren()
+        {
+            yield return Identifier;
+            yield return Value;
         }
     }
 }

@@ -18,6 +18,7 @@ namespace Wave
         LogicOr,
         EqEq,
         NotEq,
+        Eq,
         Bad,
         Eof,
 
@@ -34,7 +35,8 @@ namespace Wave
         LiteralExpr,
         BinaryExpr,
         UnaryExpr,
-        GroupingExpr
+        GroupingExpr,
+        NameExpr
     }
 
     public class Token : Node
@@ -51,6 +53,7 @@ namespace Wave
         public int Position { get; }
         public string Lexeme { get; }
         public object? Value { get; }
+        public TextSpan Span => new(Position, Lexeme.Length);
 
         public override IEnumerable<Node> GetChildren() => Enumerable.Empty<Node>();
     }

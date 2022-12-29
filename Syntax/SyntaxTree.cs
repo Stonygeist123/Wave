@@ -2,16 +2,16 @@
 
 namespace Wave
 {
-    internal class SyntaxTree
+    public class SyntaxTree
     {
-        public SyntaxTree(IEnumerable<string> diagnostics, ExprNode root, Token eofToken)
+        public SyntaxTree(IEnumerable<Diagnostic> diagnostics, ExprNode root, Token eofToken)
         {
             Diagnostics = diagnostics.ToArray();
             Root = root;
             EofToken = eofToken;
         }
 
-        public IReadOnlyList<string> Diagnostics { get; }
+        public IReadOnlyList<Diagnostic> Diagnostics { get; }
         public ExprNode Root { get; }
         public Token EofToken { get; }
 

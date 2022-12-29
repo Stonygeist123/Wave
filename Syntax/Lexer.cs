@@ -4,20 +4,20 @@
     {
         private readonly string _text;
         private int _position = 0;
-        private readonly List<string> _diagnostics = new();
+        private readonly DiagnosticBag _diagnostics = new();
         private char Current => Peek();
         private char Next => Peek(1);
 
-        public IEnumerable<string> Diagnostics => _diagnostics;
+        public DiagnosticBag Diagnostics => _diagnostics;
 
         public Lexer(string text) => _text = text;
         public Token GetToken()
         {
-            if (_position >= _text.Length)
-                return new(SyntaxKind.Eof, _position, "\0");
-
+            int start = _position;
             switch (Current)
             {
+                case '\0':
+                    return new(SyntaxKind.Eof, _position - 1, "\0");
                 case '+':
                     return new(SyntaxKind.Plus, _position++, "+");
                 case '-':
@@ -34,24 +34,35 @@
                     return new(SyntaxKind.RParen, _position++, ")");
                 case '!':
                     if (Next == '=')
-                        return new(SyntaxKind.NotEq, _position += 2, "!=");
+                    {
+                        _position += 2;
+                        return new(SyntaxKind.NotEq, start, "!=");
+                    }
                     return new(SyntaxKind.Bang, _position++, "!");
                 case '&':
                     if (Next == '&')
-                        return new(SyntaxKind.LogicAnd, _position += 2, "&&");
+                    {
+                        _position += 2;
+                        return new(SyntaxKind.LogicAnd, start, "&&");
+                    }
                     break;
                 case '|':
                     if (Next == '|')
-                        return new(SyntaxKind.LogicOr, _position += 2, "||");
+                    {
+                        _position += 2;
+                        return new(SyntaxKind.LogicOr, start, "||");
+                    }
                     break;
                 case '=':
                     if (Next == '=')
-                        return new(SyntaxKind.EqEq, _position += 2, "==");
-                    break;
+                    {
+                        _position += 2;
+                        return new(SyntaxKind.EqEq, start, "==");
+                    }
+                    return new Token(SyntaxKind.Eq, _position++, "=");
                 default:
                     if (char.IsDigit(Current))
                     {
-                        int start = _position;
                         bool isPower = false, isFloat = false;
                         double fVal = 0, fractionSize = 1;
                         int iVal = 0;
@@ -70,7 +81,7 @@
                             else if (cur == '.')
                             {
                                 if (isFloat)
-                                    _diagnostics.Add("Invalid.");
+                                    _diagnostics.Report(new(start, _position - start), "Invalid floating-point number with two dots.");
 
                                 isFloat = true;
                                 fVal = iVal;
@@ -113,7 +124,7 @@
                                 if (cur == '-')
                                 {
                                     if (negPower)
-                                        _diagnostics.Add("Invalid number literal with multiple negatives.");
+                                        _diagnostics.Report(new(start, _position - start), "Invalid number literal with multiple negatives.");
 
                                     negPower = true;
                                     if (!isFloat)
@@ -145,7 +156,6 @@
                     }
                     else if (char.IsWhiteSpace(Current))
                     {
-                        int start = _position;
                         while (char.IsWhiteSpace(Current))
                             Advance();
 
@@ -154,7 +164,6 @@
                     }
                     else if (char.IsLetter(Current))
                     {
-                        int start = _position;
                         while (char.IsLetter(Current))
                             Advance();
 
@@ -165,8 +174,8 @@
                     break;
             }
 
-            _diagnostics.Add($"Unexpected character: '{Current}'.");
-            return new(SyntaxKind.Bad, _position++, Current.ToString());
+            _diagnostics.Report(new(_position, 1), $"Unexpected character: '{Current}'.");
+            return new(SyntaxKind.Bad, _position++, Peek(-1).ToString());
         }
 
         private void Advance() => ++_position;

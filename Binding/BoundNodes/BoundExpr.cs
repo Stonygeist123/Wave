@@ -41,4 +41,25 @@
             Right = right;
         }
     }
+
+    public sealed class BoundName : BoundExpr
+    {
+        public override Type Type => Variable.Type;
+        public override BoundNodeKind Kind => BoundNodeKind.NameExpr;
+        public VariableSymbol Variable { get; }
+        public BoundName(VariableSymbol variable) => Variable = variable;
+    }
+
+    public sealed class BoundAssignment : BoundExpr
+    {
+        public override Type Type => Value.Type;
+        public override BoundNodeKind Kind => BoundNodeKind.NameExpr;
+        public VariableSymbol Variable { get; }
+        public BoundExpr Value { get; }
+        public BoundAssignment(VariableSymbol variable, BoundExpr value)
+        {
+            Variable = variable;
+            Value = value;
+        }
+    }
 }

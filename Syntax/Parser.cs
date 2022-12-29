@@ -6,8 +6,8 @@ namespace Wave
     {
         private readonly Token[] _tokens;
         private int _position = 0;
-        private readonly List<string> _diagnostics = new();
-        public IEnumerable<string> Diagnostics => _diagnostics;
+        private readonly DiagnosticBag _diagnostics = new();
+        public DiagnosticBag Diagnostics => _diagnostics;
 
         public Parser(string text)
         {
@@ -34,14 +34,28 @@ namespace Wave
             return new(_diagnostics, expr, eofToken);
         }
 
-        public ExprNode ParseExpr(ushort parentPrecedence = 0)
+        public ExprNode ParseExpr() => ParseAssignmentExpr();
+        private ExprNode ParseAssignmentExpr()
+        {
+            if (Current.Kind == SyntaxKind.Identifier && Peek(1).Kind == SyntaxKind.Eq)
+            {
+                Token id = Advance();
+                Advance();
+                ExprNode right = ParseAssignmentExpr();
+                return new AssignmentExpr(id, right);
+            }
+
+            return ParseBinExpr();
+        }
+
+        public ExprNode ParseBinExpr(ushort parentPrecedence = 0)
         {
             ExprNode left;
             ushort unOpPrec = Current.Kind.GetUnOpPrecedence();
             if (unOpPrec != 0 && unOpPrec >= parentPrecedence)
             {
                 Token op = Advance();
-                left = new UnaryExpr(op, ParseExpr(unOpPrec));
+                left = new UnaryExpr(op, ParseBinExpr(unOpPrec));
             }
             else
                 left = ParsePrimaryExpr();
@@ -53,7 +67,7 @@ namespace Wave
                     break;
 
                 Token op = Advance();
-                ExprNode right = ParseExpr(precendence);
+                ExprNode right = ParseBinExpr(precendence);
                 left = new BinaryExpr(left, op, right);
             }
 
@@ -72,6 +86,11 @@ namespace Wave
                         Token rParen = Match(SyntaxKind.RParen);
                         return new GroupingExpr(lParen, expr, rParen);
                     }
+                case SyntaxKind.Identifier:
+                    {
+                        Token id = Advance();
+                        return new NameExpr(id);
+                    }
                 case SyntaxKind.True:
                 case SyntaxKind.False:
                     return new LiteralExpr(Current, Advance().Kind == SyntaxKind.True);
@@ -86,7 +105,7 @@ namespace Wave
             if (Current.Kind == kind)
                 return Advance();
 
-            _diagnostics.Add($"Unexpected token: \"{Current.Kind}\" - expected \"{kind}\".");
+            _diagnostics.Report(Current.Span, $"Unexpected token: \"{Current.Kind}\" - expected \"{kind}\".");
             return Current;
         }
 

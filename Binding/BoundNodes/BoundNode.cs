@@ -4,7 +4,8 @@
     {
         LiteralExpr,
         UnaryExpr,
-        BinaryExpr
+        BinaryExpr,
+        NameExpr
     }
 
     public enum BoundUnOpKind

@@ -1,5 +1,4 @@
 ﻿using Wave.Binding;
-using Wave.Binding.BoundNodes;
 using Wave.Nodes;
 
 namespace Wave
@@ -9,6 +8,7 @@ namespace Wave
         static void Main()
         {
             bool showTree = false;
+            Dictionary<VariableSymbol, object?> vars = new();
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
@@ -30,9 +30,9 @@ namespace Wave
                 }
 
                 SyntaxTree syntaxTree = SyntaxTree.Parse(line);
-                Binder binder = new();
-                BoundExpr boundExpr = binder.BindExpr(syntaxTree.Root);
-                string[] diagnostics = syntaxTree.Diagnostics.Concat(binder.Diagnostics).ToArray();
+                Compilation compilation = new(syntaxTree);
+                EvaluationResult result = compilation.Evaluate(vars);
+                IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
 
                 if (showTree)
                 {
@@ -41,19 +41,29 @@ namespace Wave
                     Console.ResetColor();
                 }
 
-                if (diagnostics.Any())
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkRed;
-                    foreach (string d in diagnostics)
-                        Console.WriteLine(d);
-
-                    Console.ResetColor();
-                }
+                if (!diagnostics.Any())
+                    Console.WriteLine(result.Value);
                 else
-                {
-                    Evaluator evaluator = new(boundExpr);
-                    Console.WriteLine(evaluator.Evaluate());
-                }
+                    foreach (Diagnostic d in diagnostics)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine(d);
+                        Console.ResetColor();
+
+                        string prefix = line[..d.Span.Start];
+                        string error = line.Substring(d.Span.Start, d.Span.Length);
+                        string suffix = line[d.Span.End..];
+
+                        Console.Write("  ");
+                        Console.Write(prefix);
+
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.Write(error);
+                        Console.ResetColor();
+
+                        Console.WriteLine(suffix);
+                        Console.WriteLine();
+                    }
             }
         }
 

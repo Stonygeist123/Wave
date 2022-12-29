@@ -5,9 +5,10 @@ namespace Wave.Binding
 {
     internal class Binder
     {
-        private readonly List<string> _diagnostics = new();
-        public IEnumerable<string> Diagnostics => _diagnostics;
-
+        private readonly DiagnosticBag _diagnostics = new();
+        public DiagnosticBag Diagnostics => _diagnostics;
+        private readonly Dictionary<VariableSymbol, object?> _variables;
+        public Binder(Dictionary<VariableSymbol, object?> variables) => _variables = variables;
         public BoundExpr BindExpr(ExprNode expr)
         {
             return expr switch
@@ -16,6 +17,8 @@ namespace Wave.Binding
                 UnaryExpr u => BindUnaryExpr(u),
                 BinaryExpr b => BindBinaryExpr(b),
                 GroupingExpr b => BindExpr(b.Expr),
+                NameExpr n => BindNameExpr(n),
+                AssignmentExpr a => BindAssignmentExpr(a),
                 _ => throw new Exception("Unexpected syntax."),
             };
         }
@@ -24,11 +27,13 @@ namespace Wave.Binding
         {
             BoundExpr operand = BindExpr(u.Operand);
             BoundUnOperator? op = BoundUnOperator.Bind(u.Op.Kind, operand.Type);
-            if (op is not null)
-                return new BoundUnary(op, operand);
+            if (op is null)
+            {
+                _diagnostics.Report(u.Op.Span, $"Unary operator \"{u.Op.Kind}\" is not defined for type \"{operand.Type}\".");
+                return operand;
+            }
 
-            _diagnostics.Add($"Unary operator \"{u.Op.Kind}\" is not defined for type \"{operand.Type}\".");
-            return operand;
+            return new BoundUnary(op, operand);
         }
 
         private BoundExpr BindBinaryExpr(BinaryExpr b)
@@ -37,53 +42,39 @@ namespace Wave.Binding
             BoundExpr right = BindExpr(b.Right);
             BoundBinOperator? op = BoundBinOperator.Bind(b.Op.Kind, left.Type, right.Type);
 
-            if (op is not null)
-                return new BoundBinary(left, op, right);
+            if (op is null)
+            {
+                _diagnostics.Report(b.Op.Span, $"Binary operator \"{b.Op.Kind}\" is not defined for types \"{left.Type}\" and \"{right.Type}\".");
+                return left;
+            }
 
-            _diagnostics.Add($"Binary operator \"{b.Op.Kind}\" is not defined for types \"{left.Type}\" and \"{right.Type}\".");
-            return left;
+            return new BoundBinary(left, op, right);
         }
 
-        private static BoundUnOpKind? BindUnOpKind(SyntaxKind kind, Type operandType)
+        private BoundExpr BindNameExpr(NameExpr n)
         {
-            if (operandType == typeof(int))
-                return kind switch
-                {
-                    SyntaxKind.Plus => BoundUnOpKind.Plus,
-                    SyntaxKind.Minus => BoundUnOpKind.Minus,
-                    _ => null,
-                };
-            else if (operandType == typeof(bool))
-                return kind switch
-                {
-                    SyntaxKind.Bang => BoundUnOpKind.Bang,
-                    _ => null,
-                };
+            string name = n.Identifier.Lexeme;
+            bool variableExists = _variables.Keys.Any(v => v.Name == name);
+            if (!variableExists)
+            {
+                _diagnostics.Report(n.Identifier.Span, $"Could not find {name}.");
+                return new BoundLiteral(0);
+            }
 
-            return null;
+            return new BoundName(new(name, _variables.Keys.First(v => v.Name == name).Type));
         }
 
-        private static BoundBinOpKind? BindBinOpKind(SyntaxKind kind, Type leftType, Type rightType)
+        private BoundExpr BindAssignmentExpr(AssignmentExpr a)
         {
-            if (leftType == typeof(int) || rightType == typeof(int))
-                return kind switch
-                {
-                    SyntaxKind.Plus => BoundBinOpKind.Plus,
-                    SyntaxKind.Minus => BoundBinOpKind.Minus,
-                    SyntaxKind.Star => BoundBinOpKind.Star,
-                    SyntaxKind.Slash => BoundBinOpKind.Slash,
-                    SyntaxKind.Mod => BoundBinOpKind.Mod,
-                    _ => null,
-                };
-            else if (leftType == typeof(bool) && rightType == typeof(bool))
-                return kind switch
-                {
-                    SyntaxKind.LogicAnd => BoundBinOpKind.LogicAnd,
-                    SyntaxKind.LogicOr => BoundBinOpKind.LogicOr,
-                    _ => null,
-                };
+            string name = a.Identifier.Lexeme;
+            BoundExpr value = BindExpr(a.Value);
+            bool variableExists = _variables.Keys.Any(v => v.Name == name);
+            if (variableExists)
+                _variables.Remove(_variables.Keys.First(v => v.Name == name));
 
-            return null;
+            VariableSymbol variable = new(name, value.Type);
+            _variables[variable] = null;
+            return new BoundAssignment(new(name, value.Type), value);
         }
     }
 }

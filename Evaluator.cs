@@ -1,11 +1,17 @@
-﻿using Wave.Binding.BoundNodes;
+﻿using Wave.Binding;
+using Wave.Binding.BoundNodes;
 
 namespace Wave
 {
     internal class Evaluator
     {
         private readonly BoundExpr _root;
-        public Evaluator(BoundExpr root) => _root = root;
+        private readonly Dictionary<VariableSymbol, object?> _variables;
+        public Evaluator(BoundExpr root, Dictionary<VariableSymbol, object?> variables)
+        {
+            _root = root;
+            _variables = variables;
+        }
 
         public object Evaluate() => EvaluateExpr(_root);
         private object EvaluateExpr(BoundExpr expr)
@@ -44,6 +50,10 @@ namespace Wave
                             _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
                         };
                     }
+                case BoundName n:
+                    return _variables[n.Variable] ?? 0;
+                case BoundAssignment a:
+                    return _variables[a.Variable] = EvaluateExpr(a.Value);
             }
 
             throw new Exception($"Unexpected expression.");

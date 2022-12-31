@@ -31,11 +31,11 @@ namespace Wave
             _source = source;
         }
 
-        public SyntaxTree Parse()
+        public CompilationUnit ParseCompilationUnit()
         {
             ExprNode expr = ParseExpr();
             Token eofToken = Match(SyntaxKind.Eof);
-            return new(_source, _diagnostics, expr, eofToken);
+            return new(expr, eofToken);
         }
 
         public ExprNode ParseExpr() => ParseAssignmentExpr();

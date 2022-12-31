@@ -24,7 +24,7 @@ namespace Wave
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
             Binder binder = new(variables);
-            BoundExpr boundExpr = binder.BindExpr(SyntaxTree.Root);
+            BoundExpr boundExpr = binder.BindExpr(SyntaxTree.Root.Expr);
             ImmutableArray<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(binder.Diagnostics).ToImmutableArray();
             if (diagnostics.Any())
                 return new(diagnostics, null);

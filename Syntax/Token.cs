@@ -35,12 +35,15 @@ namespace Wave
         True,
         False,
 
+        // Nodes
+        CompilationUnit,
+
         // Expr
         LiteralExpr,
         BinaryExpr,
         UnaryExpr,
         GroupingExpr,
-        NameExpr
+        NameExpr,
     }
 
     public class Token : Node

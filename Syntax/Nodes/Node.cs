@@ -35,14 +35,25 @@ namespace Wave.Nodes
 
         private static void Print(TextWriter writer, Node? node, string indent = "", bool isLast = true)
         {
+            bool isConsole = writer == Console.Out;
+
             if (node is Node n)
             {
                 string marker = isLast ? "└──" : "├──";
                 writer.Write(indent);
+                if (isConsole)
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+
                 writer.Write(marker);
+                if (isConsole)
+                    Console.ForegroundColor = n is Token ? ConsoleColor.Blue : ConsoleColor.Cyan;
+
                 writer.Write(n.Kind);
                 if (n is Token t && t.Value is not null)
                     writer.Write($" {t.Value}");
+
+                if (isConsole)
+                    Console.ResetColor();
 
                 writer.WriteLine();
                 indent += isLast ? "    " : "│   ";

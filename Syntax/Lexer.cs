@@ -102,6 +102,12 @@
                     else
                         _kind = SyntaxKind.Eq;
                     break;
+                case '.':
+                    if (_position + 1 >= _source.Length || !char.IsDigit(_source[_position + 1]))
+                        goto default;
+                    else
+                        LexNumber();
+                    break;
                 default:
                     if (char.IsDigit(Current))
                         LexNumber();

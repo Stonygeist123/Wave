@@ -59,8 +59,10 @@ namespace Wave
 
                 if (!diagnostics.Any())
                 {
+                    Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine(result.Value);
                     Console.WriteLine();
+                    Console.ResetColor();
                 }
                 else
                 {

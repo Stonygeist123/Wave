@@ -46,7 +46,7 @@ namespace Wave
                 }
             }
 
-            if (position > lineStart)
+            if (position >= lineStart)
                 AddLine(result, source, position, lineStart, 0);
 
             return result.ToImmutable();

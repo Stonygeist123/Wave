@@ -16,11 +16,6 @@
             : this(token, token.Value ?? 0)
         {
         }
-
-        public override IEnumerable<Node> GetChildren()
-        {
-            yield return Token;
-        }
     }
 
     public sealed class UnaryExpr : ExprNode
@@ -32,12 +27,6 @@
         {
             Op = op;
             Operand = operand;
-        }
-
-        public override IEnumerable<Node> GetChildren()
-        {
-            yield return Op;
-            yield return Operand;
         }
     }
 
@@ -52,13 +41,6 @@
             Left = left;
             Op = op;
             Right = right;
-        }
-
-        public override IEnumerable<Node> GetChildren()
-        {
-            yield return Left;
-            yield return Op;
-            yield return Right;
         }
     }
 
@@ -75,12 +57,6 @@
             Expr = _expr;
             RParen = rParen;
         }
-        public override IEnumerable<Node> GetChildren()
-        {
-            yield return LParen;
-            yield return Expr;
-            yield return RParen;
-        }
     }
 
     public sealed class NameExpr : ExprNode
@@ -88,10 +64,6 @@
         public override SyntaxKind Kind => SyntaxKind.NameExpr;
         public Token Identifier { get; }
         public NameExpr(Token identifier) => Identifier = identifier;
-        public override IEnumerable<Node> GetChildren()
-        {
-            yield return Identifier;
-        }
     }
 
     public sealed class AssignmentExpr : ExprNode
@@ -103,12 +75,6 @@
         {
             Identifier = identifier;
             Value = value;
-        }
-
-        public override IEnumerable<Node> GetChildren()
-        {
-            yield return Identifier;
-            yield return Value;
         }
     }
 }

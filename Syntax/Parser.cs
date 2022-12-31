@@ -1,17 +1,20 @@
-﻿using Wave.Nodes;
+﻿using System.Collections.Immutable;
+using Wave.Nodes;
 
 namespace Wave
 {
     internal class Parser
     {
-        private readonly Token[] _tokens;
+        private readonly ImmutableArray<Token> _tokens;
         private int _position = 0;
         private readonly DiagnosticBag _diagnostics = new();
+        private readonly SourceText _source;
+
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Parser(string text)
+        public Parser(SourceText source)
         {
-            Lexer lexer = new(text);
+            Lexer lexer = new(source);
             List<Token> tokens = new();
             while (true)
             {
@@ -23,15 +26,16 @@ namespace Wave
                     break;
             }
 
-            _tokens = tokens.ToArray();
+            _tokens = tokens.ToImmutableArray();
             _diagnostics.AddRange(lexer.Diagnostics);
+            _source = source;
         }
 
         public SyntaxTree Parse()
         {
             ExprNode expr = ParseExpr();
             Token eofToken = Match(SyntaxKind.Eof);
-            return new(_diagnostics, expr, eofToken);
+            return new(_source, _diagnostics, expr, eofToken);
         }
 
         public ExprNode ParseExpr() => ParseAssignmentExpr();
@@ -94,10 +98,12 @@ namespace Wave
                 case SyntaxKind.True:
                 case SyntaxKind.False:
                     return new LiteralExpr(Current, Advance().Kind == SyntaxKind.True);
+                case SyntaxKind.Float:
+                    return new LiteralExpr(Advance());
+                default:
+                    Token number = Match(SyntaxKind.Int);
+                    return new LiteralExpr(number);
             }
-
-            Token number = Match(SyntaxKind.Int);
-            return new LiteralExpr(number);
         }
 
         private Token Match(SyntaxKind kind)

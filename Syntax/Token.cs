@@ -10,7 +10,11 @@ namespace Wave
         Minus,
         Star,
         Slash,
+        Power,
         Mod,
+        And,
+        Or,
+        Xor,
         LParen,
         RParen,
         Bang,
@@ -53,8 +57,6 @@ namespace Wave
         public int Position { get; }
         public string Lexeme { get; }
         public object? Value { get; }
-        public TextSpan Span => new(Position, Lexeme.Length);
-
-        public override IEnumerable<Node> GetChildren() => Enumerable.Empty<Node>();
+        public new TextSpan Span => new(Position, Lexeme.Length);
     }
 }

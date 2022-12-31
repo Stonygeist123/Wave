@@ -1,17 +1,18 @@
-﻿using Wave.Binding;
+﻿using System.Collections.Immutable;
+using Wave.Binding;
 using Wave.Binding.BoundNodes;
 
 namespace Wave
 {
     public class EvaluationResult
     {
-        public EvaluationResult(IEnumerable<Diagnostic> diagnostics, object? value)
+        public EvaluationResult(ImmutableArray<Diagnostic> diagnostics, object? value)
         {
-            Diagnostics = diagnostics.ToArray();
+            Diagnostics = diagnostics;
             Value = value;
         }
 
-        public IReadOnlyList<Diagnostic> Diagnostics { get; }
+        public ImmutableArray<Diagnostic> Diagnostics { get; }
         public object? Value { get; }
     }
 
@@ -24,13 +25,13 @@ namespace Wave
         {
             Binder binder = new(variables);
             BoundExpr boundExpr = binder.BindExpr(SyntaxTree.Root);
-            IEnumerable<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(binder.Diagnostics);
+            ImmutableArray<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(binder.Diagnostics).ToImmutableArray();
             if (diagnostics.Any())
                 return new(diagnostics, null);
 
             Evaluator evaluator = new(boundExpr, variables);
             object value = evaluator.Evaluate();
-            return new(Array.Empty<Diagnostic>(), value);
+            return new(ImmutableArray<Diagnostic>.Empty, value);
         }
     }
 }

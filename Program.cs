@@ -1,5 +1,6 @@
-﻿using Wave.Binding;
-using Wave.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text;
+using Wave.Binding;
 
 namespace Wave
 {
@@ -9,52 +10,74 @@ namespace Wave
         {
             bool showTree = false;
             Dictionary<VariableSymbol, object?> vars = new();
+            StringBuilder textBuilder = new();
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
-                Console.Write("> ");
+                if (textBuilder.Length == 0)
+                    Console.Write("> ");
+                else
+                    Console.Write("| ");
                 Console.ResetColor();
-                string? line = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(line))
+
+                string input = Console.ReadLine() ?? "";
+                bool isBlank = string.IsNullOrWhiteSpace(input);
+
+                if (textBuilder.Length == 0)
+                {
+                    if (isBlank)
+                        continue;
+                    else if (input.ToLower() == "#tree")
+                    {
+                        showTree = !showTree;
+                        continue;
+                    }
+                    else if (input.ToLower() == "#cls")
+                    {
+                        Console.Clear();
+                        continue;
+                    }
+                }
+
+                textBuilder.Append(input);
+                string text = textBuilder.ToString();
+                SyntaxTree syntaxTree = SyntaxTree.Parse(text);
+
+                if (!isBlank && syntaxTree.Diagnostics.Any())
                     continue;
 
-                if (line.ToLower() == "#tree")
-                {
-                    showTree = !showTree;
-                    continue;
-                }
-                else if (line.ToLower() == "#cls")
-                {
-                    Console.Clear();
-                    continue;
-                }
-
-                SyntaxTree syntaxTree = SyntaxTree.Parse(line);
                 Compilation compilation = new(syntaxTree);
                 EvaluationResult result = compilation.Evaluate(vars);
-                IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
+                ImmutableArray<Diagnostic> diagnostics = result.Diagnostics;
 
                 if (showTree)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Print(syntaxTree.Root);
+                    syntaxTree.Root.WriteTo(Console.Out);
                     Console.ResetColor();
                 }
 
                 if (!diagnostics.Any())
+                {
                     Console.WriteLine(result.Value);
+                    Console.WriteLine();
+                }
                 else
+                {
                     foreach (Diagnostic d in diagnostics)
                     {
+                        int lineIndex = syntaxTree.Source.GetLineIndex(d.Span.Start);
+                        int lineNumber = lineIndex + 1;
+                        TextLine line = syntaxTree.Source.Lines[lineIndex];
+                        int column = d.Span.Start - line.Start + 1;
                         Console.ForegroundColor = ConsoleColor.DarkRed;
-                        Console.WriteLine(d);
+                        Console.Write($"[{lineNumber}:{column}]: ");
                         Console.ResetColor();
 
-                        string prefix = line[..d.Span.Start];
-                        string error = line.Substring(d.Span.Start, d.Span.Length);
-                        string suffix = line[d.Span.End..];
+                        string prefix = syntaxTree.Source.ToString(line.Start, d.Span.Start),
+                            error = syntaxTree.Source.ToString(d.Span),
+                            suffix = syntaxTree.Source[d.Span.End..];
 
-                        Console.Write("  ");
                         Console.Write(prefix);
 
                         Console.ForegroundColor = ConsoleColor.DarkRed;
@@ -62,26 +85,16 @@ namespace Wave
                         Console.ResetColor();
 
                         Console.WriteLine(suffix);
-                        Console.WriteLine();
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.Write(new string(' ', prefix.Length + 7));
+                        Console.Write(new string('^', Math.Clamp(1, error.Length, error.Length + 1)));
+                        Console.WriteLine(' ' + d.ToString() + '\n');
+                        Console.ResetColor();
                     }
+                }
+
+                textBuilder.Clear();
             }
-        }
-
-        static void Print(Node node, string indent = "", bool isLast = true)
-        {
-            string marker = isLast ? "└──" : "├──";
-            Console.Write(indent);
-            Console.Write(marker);
-            Console.Write(node.Kind);
-            if (node is Token t && t.Value is not null)
-                Console.Write($" {t.Value}");
-
-            Console.WriteLine();
-            indent += isLast ? "    " : "│   ";
-            Node? lastChild = node.GetChildren().LastOrDefault();
-
-            foreach (Node child in node.GetChildren())
-                Print(child, indent, child == lastChild);
         }
     }
 }

@@ -1,6 +1,7 @@
 # Wave
 
 A turing-complete compiled and interpreted programming language with OOP support and functional features.
+It also includes a fully functional REPL.
 
 ## Syntax
 ### Expressions (expr)

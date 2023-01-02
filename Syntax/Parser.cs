@@ -38,21 +38,28 @@ namespace Wave
             return new(expr, eofToken);
         }
 
-        private StmtNode ParseStmt()
+        private StmtNode ParseStmt() => Current.Kind switch
         {
-            if (Current.Kind == SyntaxKind.LBrace)
-                return ParseBlockStmt();
-            if (Current.Kind == SyntaxKind.Var)
-                return ParseVarStmt();
-            return ParseExprStmt();
-        }
+            SyntaxKind.LBrace => ParseBlockStmt(),
+            SyntaxKind.Var => ParseVarStmt(),
+            SyntaxKind.If => ParseIfStmt(),
+            SyntaxKind.While => ParseWhileStmt(),
+            SyntaxKind.For => ParseForStmt(),
+            _ => ParseExprStmt()
+        };
 
         private BlockStmt ParseBlockStmt()
         {
             ImmutableArray<StmtNode>.Builder stmts = ImmutableArray.CreateBuilder<StmtNode>();
             Token lBrace = Advance();
+
             while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
+            {
+                Token startToken = Current;
                 stmts.Add(ParseStmt());
+                if (startToken == Current)
+                    Advance();
+            }
 
             Token rBrace = Match(SyntaxKind.RBrace);
             return new(lBrace, stmts.ToImmutable(), rBrace);
@@ -68,10 +75,45 @@ namespace Wave
             return new(keyword, mutKw, name, eqToken, value, Match(SyntaxKind.Semicolon));
         }
 
+        private IfStmt ParseIfStmt()
+        {
+            Token kw = Advance();
+            ExprNode condition = ParseExpr();
+            StmtNode thenBranch = ParseStmt();
+            ElseClause? elseClause = Current.Kind == SyntaxKind.Else ? new(Advance(), ParseStmt()) : null;
+            if (Current.Kind == SyntaxKind.Else)
+                _diagnostics.Report(Current.Span, "Multiple else-clauses are not allowed.");
+
+            return new(kw, condition, thenBranch, elseClause);
+        }
+
+        private WhileStmt ParseWhileStmt()
+        {
+            Token kw = Advance();
+            ExprNode condition = ParseExpr();
+            StmtNode stmt = ParseStmt();
+            return new(kw, condition, stmt);
+        }
+
+        private ForStmt ParseForStmt()
+        {
+            Token kw = Advance();
+            Token id = Match(SyntaxKind.Identifier);
+            Token eqToken = Match(SyntaxKind.Eq);
+            ExprNode lowerBound = ParseExpr();
+            Token arrow = Match(SyntaxKind.Arrow);
+            ExprNode upperBound = ParseExpr();
+            StmtNode stmt = ParseStmt();
+            return new(kw, id, eqToken, lowerBound, arrow, upperBound, stmt);
+        }
+
         private ExpressionStmt ParseExprStmt()
         {
             ExprNode expr = ParseExpr();
-            return new(expr, Match(SyntaxKind.Semicolon));
+            if (Current.Kind == SyntaxKind.Semicolon)
+                Advance();
+
+            return new(expr);
         }
 
         private ExprNode ParseExpr() => ParseAssignmentExpr();

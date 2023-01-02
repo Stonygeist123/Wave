@@ -30,7 +30,13 @@
                     break;
                 case '-':
                     ++_position;
-                    _kind = SyntaxKind.Minus;
+                    if (Current == '>')
+                    {
+                        ++_position;
+                        _kind = SyntaxKind.Arrow;
+                    }
+                    else
+                        _kind = SyntaxKind.Minus;
                     break;
                 case '*':
                     ++_position;
@@ -109,6 +115,26 @@
                     }
                     else
                         _kind = SyntaxKind.Eq;
+                    break;
+                case '>':
+                    ++_position;
+                    if (Current == '=')
+                    {
+                        ++_position;
+                        _kind = SyntaxKind.GreaterEq;
+                    }
+                    else
+                        _kind = SyntaxKind.Greater;
+                    break;
+                case '<':
+                    ++_position;
+                    if (Current == '=')
+                    {
+                        ++_position;
+                        _kind = SyntaxKind.LessEq;
+                    }
+                    else
+                        _kind = SyntaxKind.Less;
                     break;
                 case '.':
                     if (_position + 1 >= _source.Length || !char.IsDigit(_source[_position + 1]))

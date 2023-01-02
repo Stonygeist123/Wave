@@ -97,7 +97,7 @@ Examples:
 a = 50;
 
 Genral:
-<expr>;
+<expr>
 ```
 
 #### Block (scope)
@@ -122,4 +122,43 @@ var mut y = x * 10 / 3;
 
 Genral:
 var [mut] <id> = <expr>;
+```
+
+#### If (if)
+```
+Examples:
+if 2 > -4
+	x = x ** 2;
+
+if y == z
+	x = y;
+else
+	x = z;
+
+Genral:
+if <expr> <stmt> [else <stmt>]
+```
+
+#### While (while)
+```
+Examples:
+var mut x = 10;
+while x > 0
+	x = x - 1;
+
+Genral:
+while <expr> <stmt>
+```
+
+#### For-range (for)
+```
+Examples:
+var x = 10;
+var mut y = 1;
+
+for i = 1 -> x
+	y = y * i;
+
+Genral:
+for <id> = <expr> -> <expr> <stmt>
 ```

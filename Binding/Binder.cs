@@ -50,6 +50,9 @@ namespace Wave.Binding
                 ExpressionStmt e => BindExpressionStmt(e),
                 BlockStmt b => BindBlockStmt(b),
                 VarStmt v => BindVarStmt(v),
+                IfStmt i => BindIfStmt(i),
+                WhileStmt w => BindWhileStmt(w),
+                ForStmt f => BindForStmt(f),
                 _ => throw new Exception("Unexpected syntax."),
             };
         }
@@ -76,6 +79,52 @@ namespace Wave.Binding
                 _diagnostics.Report(v.Name.Span, $"\"{name}\" already exists.");
 
             return new(variable, value);
+        }
+
+        private BoundIfStmt BindIfStmt(IfStmt i)
+        {
+            BoundExpr condition = BindExpr(i.Condition, typeof(bool));
+            if (condition.Type != typeof(bool))
+                _diagnostics.Report(i.Condition.Span, $"Condition needs to be a bool.");
+
+            BoundStmt thenBranch = BindStmt(i.ThenBranch);
+            BoundStmt? elseClause = i.ElseClause is not null ? BindStmt(i.ElseClause.Stmt) : null;
+            return new(condition, thenBranch, elseClause);
+        }
+
+        private BoundWhileStmt BindWhileStmt(WhileStmt w)
+        {
+            BoundExpr condition = BindExpr(w.Condition, typeof(bool));
+            if (condition.Type != typeof(bool))
+                _diagnostics.Report(w.Condition.Span, $"Condition needs to be a bool.");
+
+            BoundStmt stmt = BindStmt(w.Stmt);
+            return new(condition, stmt);
+        }
+
+        private BoundForStmt BindForStmt(ForStmt f)
+        {
+            BoundExpr lowerBound = BindExpr(f.LowerBound, typeof(int));
+            BoundExpr upperBound = BindExpr(f.UpperBound, typeof(int));
+
+            _scope = new(_scope);
+            string name = f.Id.Lexeme;
+            VariableSymbol variable = new(name, typeof(int), false);
+            if (!_scope.TryDeclare(variable))
+                _diagnostics.Report(f.Id.Span, $"\"{name}\" already exists.");
+
+            BoundStmt stmt = BindStmt(f.Stmt);
+            _scope = _scope.Parent!;
+            return new(variable, lowerBound, upperBound, stmt);
+        }
+
+        private BoundExpr BindExpr(ExprNode expr, Type targetType)
+        {
+            BoundExpr boundExpr = BindExpr(expr);
+            if (boundExpr.Type != targetType)
+                _diagnostics.Report(expr.Span, $"Cannot type of \"{boundExpr.Type}\" to \"{targetType}\".");
+
+            return boundExpr;
         }
 
         private BoundExpr BindExpr(ExprNode expr)

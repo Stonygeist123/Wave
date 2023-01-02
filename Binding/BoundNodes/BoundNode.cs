@@ -11,7 +11,8 @@
         // Stmt
         ExpressionStmt,
         BlockStmt,
-        VarStmt
+        VarStmt,
+        ForStmt
     }
 
     public enum BoundUnOpKind
@@ -35,7 +36,11 @@
         LogicAnd,
         LogicOr,
         EqEq,
-        NotEq
+        NotEq,
+        Greater,
+        Less,
+        GreaterEq,
+        LessEq
     }
 
     public abstract class BoundNode

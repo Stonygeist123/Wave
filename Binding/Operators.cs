@@ -77,6 +77,10 @@ namespace Wave.Binding
             new(SyntaxKind.Xor, BoundBinOpKind.Xor, typeof(int)),
             new(SyntaxKind.EqEq, BoundBinOpKind.EqEq, typeof(int), typeof(bool)),
             new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, typeof(int), typeof(bool)),
+            new(SyntaxKind.Greater, BoundBinOpKind.Greater, typeof(int), typeof(bool)),
+            new(SyntaxKind.Less, BoundBinOpKind.Less, typeof(int), typeof(bool)),
+            new(SyntaxKind.GreaterEq, BoundBinOpKind.GreaterEq, typeof(int), typeof(bool)),
+            new(SyntaxKind.LessEq, BoundBinOpKind.LessEq, typeof(int), typeof(bool)),
 
             new(SyntaxKind.LogicAnd, BoundBinOpKind.LogicAnd, typeof(bool)),
             new(SyntaxKind.LogicOr, BoundBinOpKind.LogicOr, typeof(bool)),

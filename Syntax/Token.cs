@@ -24,8 +24,13 @@ namespace Wave
         LogicOr,
         EqEq,
         NotEq,
+        Greater,
+        Less,
+        GreaterEq,
+        LessEq,
         Eq,
         Semicolon,
+        Arrow,
         Bad,
         Eof,
 
@@ -39,6 +44,10 @@ namespace Wave
         False,
         Var,
         Mut,
+        If,
+        Else,
+        While,
+        For,
 
         // Nodes
         CompilationUnit,
@@ -53,7 +62,10 @@ namespace Wave
         // Stmt
         ExpressionStmt,
         BlockStmt,
-        VarStmt
+        VarStmt,
+        IfStmt,
+        ElseClause,
+        ForStmt
     }
 
     public class Token : Node

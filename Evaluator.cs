@@ -25,17 +25,52 @@ namespace Wave
             switch (stmt)
             {
                 case BoundExpressionStmt e:
-                    _lastValue = EvaluateExpr(e.Expr);
-                    break;
+                    {
+                        _lastValue = EvaluateExpr(e.Expr);
+                        break;
+                    }
                 case BoundBlockStmt b:
-                    foreach (BoundStmt s in b.Stmts)
-                        EvaluateStmt(s);
-                    break;
+                    {
+                        foreach (BoundStmt s in b.Stmts)
+                            EvaluateStmt(s);
+                        break;
+                    }
                 case BoundVarStmt v:
-                    object value = EvaluateExpr(v.Value);
-                    _variables[v.Variable] = value;
-                    _lastValue = value;
-                    break;
+                    {
+                        object value = EvaluateExpr(v.Value);
+                        _variables[v.Variable] = value;
+                        _lastValue = value;
+                        break;
+                    }
+                case BoundIfStmt i:
+                    {
+                        bool condition = (bool)EvaluateExpr(i.Condition);
+                        if (condition)
+                            EvaluateStmt(i.ThenBranch);
+                        else if (i.ElseClause is not null)
+                            EvaluateStmt(i.ElseClause);
+                        break;
+                    }
+                case BoundWhileStmt w:
+                    {
+                        bool condition = (bool)EvaluateExpr(w.Condition);
+                        while (condition)
+                            EvaluateStmt(w.Stmt);
+                        break;
+                    }
+                case BoundForStmt f:
+                    {
+                        int lowerBound = (int)EvaluateExpr(f.LowerBound);
+                        int upperBound = (int)EvaluateExpr(f.UpperBound);
+
+                        for (int i = lowerBound; i <= upperBound; ++i)
+                        {
+                            _variables[f.Variable] = i;
+                            EvaluateStmt(f.Stmt);
+                        }
+
+                        break;
+                    }
             }
         }
 
@@ -76,6 +111,10 @@ namespace Wave
                             BoundBinOpKind.LogicOr => (bool)left || (bool)right,
                             BoundBinOpKind.EqEq => Equals(left, right),
                             BoundBinOpKind.NotEq => !Equals(left, right),
+                            BoundBinOpKind.Greater => (int)left > (int)right,
+                            BoundBinOpKind.Less => (int)left < (int)right,
+                            BoundBinOpKind.GreaterEq => (int)left >= (int)right,
+                            BoundBinOpKind.LessEq => (int)left <= (int)right,
                             _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
                         };
                     }

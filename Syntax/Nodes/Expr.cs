@@ -70,10 +70,12 @@
     {
         public override SyntaxKind Kind => SyntaxKind.NameExpr;
         public Token Identifier { get; }
+        public Token EqToken { get; }
         public ExprNode Value { get; }
-        public AssignmentExpr(Token identifier, ExprNode value)
+        public AssignmentExpr(Token identifier, Token eqToken, ExprNode value)
         {
             Identifier = identifier;
+            EqToken = eqToken;
             Value = value;
         }
     }

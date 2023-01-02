@@ -26,6 +26,8 @@
         {
             "true" => SyntaxKind.True,
             "false" => SyntaxKind.False,
+            "var" => SyntaxKind.Var,
+            "mut" => SyntaxKind.Mut,
             _ => SyntaxKind.Identifier,
         };
 
@@ -39,14 +41,19 @@
             SyntaxKind.Mod => "%",
             SyntaxKind.LParen => "(",
             SyntaxKind.RParen => ")",
+            SyntaxKind.LBrace => "{",
+            SyntaxKind.RBrace => "}",
             SyntaxKind.Bang => "!",
             SyntaxKind.LogicAnd => "&&",
             SyntaxKind.LogicOr => "||",
             SyntaxKind.EqEq => "==",
             SyntaxKind.NotEq => "!=",
             SyntaxKind.Eq => "=",
+            SyntaxKind.Semicolon => ";",
             SyntaxKind.True => "true",
             SyntaxKind.False => "false",
+            SyntaxKind.Var => "var",
+            SyntaxKind.Mut => "mut",
             _ => null,
         };
     }

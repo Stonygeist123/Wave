@@ -17,12 +17,15 @@ namespace Wave
         Xor,
         LParen,
         RParen,
+        LBrace,
+        RBrace,
         Bang,
         LogicAnd,
         LogicOr,
         EqEq,
         NotEq,
         Eq,
+        Semicolon,
         Bad,
         Eof,
 
@@ -34,6 +37,8 @@ namespace Wave
         // Keywords
         True,
         False,
+        Var,
+        Mut,
 
         // Nodes
         CompilationUnit,
@@ -44,6 +49,11 @@ namespace Wave
         UnaryExpr,
         GroupingExpr,
         NameExpr,
+
+        // Stmt
+        ExpressionStmt,
+        BlockStmt,
+        VarStmt
     }
 
     public class Token : Node

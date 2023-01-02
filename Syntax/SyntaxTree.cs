@@ -8,10 +8,8 @@ namespace Wave
         private SyntaxTree(SourceText source)
         {
             Parser parser = new(source);
-            CompilationUnit root = parser.ParseCompilationUnit();
-            ImmutableArray<Diagnostic> diagnostics = parser.Diagnostics.ToImmutableArray();
-
-            Diagnostics = diagnostics;
+            CompilationUnit root = parser.ParseCompilationUnit(); ;
+            Diagnostics = parser.Diagnostics.ToImmutableArray();
             Source = source;
             Root = root;
         }

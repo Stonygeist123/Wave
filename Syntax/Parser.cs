@@ -33,26 +33,62 @@ namespace Wave
 
         public CompilationUnit ParseCompilationUnit()
         {
-            ExprNode expr = ParseExpr();
+            StmtNode expr = ParseStmt();
             Token eofToken = Match(SyntaxKind.Eof);
             return new(expr, eofToken);
         }
 
-        public ExprNode ParseExpr() => ParseAssignmentExpr();
+        private StmtNode ParseStmt()
+        {
+            if (Current.Kind == SyntaxKind.LBrace)
+                return ParseBlockStmt();
+            if (Current.Kind == SyntaxKind.Var)
+                return ParseVarStmt();
+            return ParseExprStmt();
+        }
+
+        private BlockStmt ParseBlockStmt()
+        {
+            ImmutableArray<StmtNode>.Builder stmts = ImmutableArray.CreateBuilder<StmtNode>();
+            Token lBrace = Advance();
+            while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
+                stmts.Add(ParseStmt());
+
+            Token rBrace = Match(SyntaxKind.RBrace);
+            return new(lBrace, stmts.ToImmutable(), rBrace);
+        }
+
+        private VarStmt ParseVarStmt()
+        {
+            Token keyword = Advance();
+            Token? mutKw = Current.Kind == SyntaxKind.Mut ? Advance() : null;
+            Token name = Match(SyntaxKind.Identifier);
+            Token eqToken = Match(SyntaxKind.Eq);
+            ExprNode value = ParseExpr();
+            return new(keyword, mutKw, name, eqToken, value, Match(SyntaxKind.Semicolon));
+        }
+
+        private ExpressionStmt ParseExprStmt()
+        {
+            ExprNode expr = ParseExpr();
+            return new(expr, Match(SyntaxKind.Semicolon));
+        }
+
+        private ExprNode ParseExpr() => ParseAssignmentExpr();
         private ExprNode ParseAssignmentExpr()
         {
             if (Current.Kind == SyntaxKind.Identifier && Peek(1).Kind == SyntaxKind.Eq)
             {
                 Token id = Advance();
-                Advance();
+                Token eqToken = Advance();
                 ExprNode right = ParseAssignmentExpr();
-                return new AssignmentExpr(id, right);
+                return new AssignmentExpr(id, eqToken, right);
             }
 
             return ParseBinExpr();
         }
 
-        public ExprNode ParseBinExpr(ushort parentPrecedence = 0)
+        private ExprNode ParseBinExpr(ushort parentPrecedence = 0)
         {
             ExprNode left;
             ushort unOpPrec = Current.Kind.GetUnOpPrecedence();

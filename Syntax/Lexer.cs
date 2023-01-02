@@ -58,6 +58,14 @@
                     ++_position;
                     _kind = SyntaxKind.RParen;
                     break;
+                case '{':
+                    ++_position;
+                    _kind = SyntaxKind.LBrace;
+                    break;
+                case '}':
+                    ++_position;
+                    _kind = SyntaxKind.RBrace;
+                    break;
                 case '&':
                     ++_position;
                     if (Current == '&')
@@ -108,6 +116,10 @@
                     else
                         LexNumber();
                     break;
+                case ';':
+                    ++_position;
+                    _kind = SyntaxKind.Semicolon;
+                    break;
                 default:
                     if (char.IsDigit(Current))
                         LexNumber();
@@ -117,9 +129,9 @@
                         while (char.IsWhiteSpace(Current))
                             ++_position;
                     }
-                    else if (char.IsLetter(Current))
+                    else if (char.IsLetter(Current) || Current == '_')
                     {
-                        while (char.IsLetter(Current))
+                        while (char.IsLetter(Current) || Current == '_')
                             ++_position;
 
                         _kind = SyntaxFacts.GetKeyWordKind(_source[_start.._position]);

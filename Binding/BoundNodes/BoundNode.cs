@@ -2,10 +2,16 @@
 {
     public enum BoundNodeKind
     {
+        // Expr
         LiteralExpr,
         UnaryExpr,
         BinaryExpr,
-        NameExpr
+        NameExpr,
+
+        // Stmt
+        ExpressionStmt,
+        BlockStmt,
+        VarStmt
     }
 
     public enum BoundUnOpKind

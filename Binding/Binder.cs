@@ -1,4 +1,5 @@
-﻿using Wave.Binding.BoundNodes;
+﻿using System.Collections.Immutable;
+using Wave.Binding.BoundNodes;
 using Wave.Nodes;
 
 namespace Wave.Binding
@@ -6,10 +7,78 @@ namespace Wave.Binding
     internal class Binder
     {
         private readonly DiagnosticBag _diagnostics = new();
+        private BoundScope _scope;
         public DiagnosticBag Diagnostics => _diagnostics;
-        private readonly Dictionary<VariableSymbol, object?> _variables;
-        public Binder(Dictionary<VariableSymbol, object?> variables) => _variables = variables;
-        public BoundExpr BindExpr(ExprNode expr)
+        public Binder(BoundScope? parent) => _scope = new(parent);
+
+        public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, CompilationUnit syntax)
+        {
+            BoundScope? parentScope = CreateParentScope(previous);
+            Binder binder = new(parentScope);
+            BoundStmt stmt = binder.BindStmt(syntax.Stmt);
+            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVars();
+            ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
+            return new(previous, diagnostics, variables, stmt);
+        }
+
+        private static BoundScope? CreateParentScope(BoundGlobalScope? previous)
+        {
+            Stack<BoundGlobalScope> stack = new();
+            while (previous is not null)
+            {
+                stack.Push(previous);
+                previous = previous.Previous;
+            }
+
+            BoundScope? parent = null;
+            while (stack.Count > 0)
+            {
+                previous = stack.Pop();
+                BoundScope scope = new(parent);
+                foreach (VariableSymbol v in previous.Variables)
+                    scope.TryDeclare(v);
+
+                parent = scope;
+            }
+
+            return parent;
+        }
+        public BoundStmt BindStmt(StmtNode stmt)
+        {
+            return stmt switch
+            {
+                ExpressionStmt e => BindExpressionStmt(e),
+                BlockStmt b => BindBlockStmt(b),
+                VarStmt v => BindVarStmt(v),
+                _ => throw new Exception("Unexpected syntax."),
+            };
+        }
+
+        private BoundExpressionStmt BindExpressionStmt(ExpressionStmt e) => new(BindExpr(e.Expr));
+        private BoundBlockStmt BindBlockStmt(BlockStmt b)
+        {
+            ImmutableArray<BoundStmt>.Builder stmts = ImmutableArray.CreateBuilder<BoundStmt>();
+            _scope = new(_scope);
+            foreach (StmtNode stmt in b.Stmts)
+                stmts.Add(BindStmt(stmt));
+
+            _scope = _scope.Parent!;
+            return new(stmts.ToImmutable());
+        }
+
+        private BoundVarStmt BindVarStmt(VarStmt v)
+        {
+            string name = v.Name.Lexeme;
+            bool isMut = v.MutKeyword is not null;
+            BoundExpr value = BindExpr(v.Value);
+            VariableSymbol variable = new(name, value.Type, isMut);
+            if (!_scope.TryDeclare(variable))
+                _diagnostics.Report(v.Name.Span, $"\"{name}\" already exists.");
+
+            return new(variable, value);
+        }
+
+        private BoundExpr BindExpr(ExprNode expr)
         {
             return expr switch
             {
@@ -54,27 +123,38 @@ namespace Wave.Binding
         private BoundExpr BindNameExpr(NameExpr n)
         {
             string name = n.Identifier.Lexeme;
-            bool variableExists = _variables.Keys.Any(v => v.Name == name);
-            if (!variableExists)
+            if (!_scope.TryLookup(name, out VariableSymbol variable))
             {
-                _diagnostics.Report(n.Identifier.Span, $"Could not find {name}.");
+                _diagnostics.Report(n.Identifier.Span, $"Could not find \"{name}\".");
                 return new BoundLiteral(0);
             }
 
-            return new BoundName(new(name, _variables.Keys.First(v => v.Name == name).Type));
+            return new BoundName(variable);
         }
 
         private BoundExpr BindAssignmentExpr(AssignmentExpr a)
         {
             string name = a.Identifier.Lexeme;
             BoundExpr value = BindExpr(a.Value);
-            bool variableExists = _variables.Keys.Any(v => v.Name == name);
-            if (variableExists)
-                _variables.Remove(_variables.Keys.First(v => v.Name == name));
+            if (!_scope.TryLookup(name, out VariableSymbol variable))
+            {
+                _diagnostics.Report(a.Identifier.Span, $"Could not find \"{name}\".");
+                return value;
+            }
 
-            VariableSymbol variable = new(name, value.Type);
-            _variables[variable] = null;
-            return new BoundAssignment(new(name, value.Type), value);
+            if (!variable.IsMut)
+            {
+                _diagnostics.Report(a.EqToken.Span, $"Cannot assign to \"{name}\" - it is a constant.");
+                return value;
+            }
+
+            if (variable.Type != value.Type)
+            {
+                _diagnostics.Report(a.Value.Span, $"Cannot assign a value with type of \"{value.Type}\" to \"{name}\" which has a type of \"{variable.Type}\".");
+                return value;
+            }
+
+            return new BoundAssignment(variable, value);
         }
     }
 }

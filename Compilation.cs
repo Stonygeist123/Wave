@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Wave.Binding;
-using Wave.Binding.BoundNodes;
 
 namespace Wave
 {
@@ -18,19 +17,44 @@ namespace Wave
 
     public sealed class Compilation
     {
+        private BoundGlobalScope? _globalScope;
         public SyntaxTree SyntaxTree { get; }
-        public Compilation(SyntaxTree syntaxTree) => SyntaxTree = syntaxTree;
+        public Compilation? Previous { get; }
+        public Compilation(SyntaxTree syntaxTree)
+            : this(null, syntaxTree)
+        { }
+
+        public Compilation(Compilation? previous, SyntaxTree syntaxTree)
+        {
+            SyntaxTree = syntaxTree;
+            Previous = previous;
+        }
+
+        internal BoundGlobalScope GlobalScope
+        {
+            get
+            {
+                if (_globalScope is null)
+                {
+                    BoundGlobalScope globalScope = Binder.BindGlobalScope(Previous?.GlobalScope, SyntaxTree.Root);
+                    Interlocked.CompareExchange(ref _globalScope, globalScope, null);
+                }
+
+                return _globalScope;
+            }
+        }
+
+
+        public Compilation ContinueWith(SyntaxTree syntaxTree) => new(this, syntaxTree);
 
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
-            Binder binder = new(variables);
-            BoundExpr boundExpr = binder.BindExpr(SyntaxTree.Root.Expr);
-            ImmutableArray<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(binder.Diagnostics).ToImmutableArray();
+            ImmutableArray<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(GlobalScope.Diagnostics).ToImmutableArray();
             if (diagnostics.Any())
                 return new(diagnostics, null);
 
-            Evaluator evaluator = new(boundExpr, variables);
-            object value = evaluator.Evaluate();
+            Evaluator evaluator = new(GlobalScope.Stmt, variables);
+            object? value = evaluator.Evaluate();
             return new(ImmutableArray<Diagnostic>.Empty, value);
         }
     }

@@ -11,6 +11,7 @@ namespace Wave
             bool showTree = false;
             Dictionary<VariableSymbol, object?> vars = new();
             StringBuilder textBuilder = new();
+            Compilation? previous = null;
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
@@ -37,6 +38,11 @@ namespace Wave
                         Console.Clear();
                         continue;
                     }
+                    else if (input.ToLower() == "#reset")
+                    {
+                        previous = null;
+                        continue;
+                    }
                 }
 
                 textBuilder.Append(input);
@@ -46,7 +52,11 @@ namespace Wave
                 if (!isBlank && syntaxTree.Diagnostics.Any())
                     continue;
 
-                Compilation compilation = new(syntaxTree);
+                Compilation compilation = previous is null
+                                ? new(syntaxTree)
+                                : previous.ContinueWith(syntaxTree);
+
+                previous = compilation;
                 EvaluationResult result = compilation.Evaluate(vars);
                 ImmutableArray<Diagnostic> diagnostics = result.Diagnostics;
 
@@ -63,6 +73,7 @@ namespace Wave
                     Console.WriteLine(result.Value);
                     Console.WriteLine();
                     Console.ResetColor();
+                    previous = compilation;
                 }
                 else
                 {
@@ -80,13 +91,15 @@ namespace Wave
                             error = syntaxTree.Source.ToString(d.Span),
                             suffix = syntaxTree.Source[d.Span.End..];
 
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
                         Console.Write(prefix);
 
                         Console.ForegroundColor = ConsoleColor.DarkRed;
                         Console.Write(error);
-                        Console.ResetColor();
 
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
                         Console.WriteLine(suffix);
+
                         Console.ForegroundColor = ConsoleColor.DarkRed;
                         Console.Write(new string(' ', prefix.Length + 7));
                         Console.Write(new string('^', Math.Clamp(1, error.Length, error.Length + 1)));

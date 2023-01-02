@@ -68,7 +68,7 @@ Genral:
 ] <expr>
 ```
 
-#### Name expression (name)
+#### Name expression (id)
 ```
 Examples:
 abc
@@ -86,5 +86,40 @@ Examples:
 true && 1 == 1
 
 Genral:
-<name> = <expr>
+<id> = <expr>
+```
+
+### Statements (stmt)
+#### Expression (expr_s)
+```
+Examples:
+(90 / 4 + 5) ** 2;
+a = 50;
+
+Genral:
+<expr>;
+```
+
+#### Block (scope)
+```
+Examples:
+{
+	var x = 5;
+	x ** 2;
+}
+
+Genral:
+{
+	<...stmt>
+}
+```
+
+#### Variable (var)
+```
+Examples:
+var x = 10;
+var mut y = x * 10 / 3;
+
+Genral:
+var [mut] <id> = <expr>;
 ```

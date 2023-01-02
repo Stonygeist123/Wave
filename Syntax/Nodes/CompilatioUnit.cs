@@ -2,13 +2,13 @@
 {
     public sealed class CompilationUnit : Node
     {
-        public CompilationUnit(ExprNode expr, Token eofToken)
+        public CompilationUnit(StmtNode stmt, Token eofToken)
         {
-            Expr = expr;
+            Stmt = stmt;
             EofToken = eofToken;
         }
 
-        public ExprNode Expr { get; }
+        public StmtNode Stmt { get; }
         public Token EofToken { get; }
         public override SyntaxKind Kind => SyntaxKind.CompilationUnit;
     }

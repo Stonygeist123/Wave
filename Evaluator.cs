@@ -5,15 +5,40 @@ namespace Wave
 {
     internal class Evaluator
     {
-        private readonly BoundExpr _root;
+        private readonly BoundStmt _root;
         private readonly Dictionary<VariableSymbol, object?> _variables;
-        public Evaluator(BoundExpr root, Dictionary<VariableSymbol, object?> variables)
+        private object? _lastValue = null;
+        public Evaluator(BoundStmt root, Dictionary<VariableSymbol, object?> variables)
         {
             _root = root;
             _variables = variables;
         }
 
-        public object Evaluate() => EvaluateExpr(_root);
+        public object? Evaluate()
+        {
+            EvaluateStmt(_root);
+            return _lastValue;
+        }
+
+        private void EvaluateStmt(BoundStmt stmt)
+        {
+            switch (stmt)
+            {
+                case BoundExpressionStmt e:
+                    _lastValue = EvaluateExpr(e.Expr);
+                    break;
+                case BoundBlockStmt b:
+                    foreach (BoundStmt s in b.Stmts)
+                        EvaluateStmt(s);
+                    break;
+                case BoundVarStmt v:
+                    object value = EvaluateExpr(v.Value);
+                    _variables[v.Variable] = value;
+                    _lastValue = value;
+                    break;
+            }
+        }
+
         private object EvaluateExpr(BoundExpr expr)
         {
             switch (expr)

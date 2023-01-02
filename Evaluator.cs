@@ -88,6 +88,7 @@ namespace Wave
                             BoundUnOpKind.Plus => (int)v,
                             BoundUnOpKind.Minus => -(int)v,
                             BoundUnOpKind.Bang => !(bool)v,
+                            BoundUnOpKind.Inv => ~(int)v,
                             _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
                         };
                     }
@@ -96,27 +97,91 @@ namespace Wave
                         object left = EvaluateExpr(b.Left);
                         object right = EvaluateExpr(b.Right);
 
-                        return b.Op.Kind switch
+                        if (left is double lf)
                         {
-                            BoundBinOpKind.Plus => (int)left + (int)right,
-                            BoundBinOpKind.Minus => (int)left - (int)right,
-                            BoundBinOpKind.Star => (int)left * (int)right,
-                            BoundBinOpKind.Slash => (int)left / (int)right,
-                            BoundBinOpKind.Power => (int)Math.Pow((int)left, (int)right),
-                            BoundBinOpKind.Mod => (int)left % (int)right,
-                            BoundBinOpKind.And => (int)left & (int)right,
-                            BoundBinOpKind.Or => (int)left | (int)right,
-                            BoundBinOpKind.Xor => (int)left ^ (int)right,
-                            BoundBinOpKind.LogicAnd => (bool)left && (bool)right,
-                            BoundBinOpKind.LogicOr => (bool)left || (bool)right,
-                            BoundBinOpKind.EqEq => Equals(left, right),
-                            BoundBinOpKind.NotEq => !Equals(left, right),
-                            BoundBinOpKind.Greater => (int)left > (int)right,
-                            BoundBinOpKind.Less => (int)left < (int)right,
-                            BoundBinOpKind.GreaterEq => (int)left >= (int)right,
-                            BoundBinOpKind.LessEq => (int)left <= (int)right,
-                            _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
-                        };
+                            if (right is double rf)
+                                return b.Op.Kind switch
+                                {
+                                    BoundBinOpKind.Plus => lf + rf,
+                                    BoundBinOpKind.Minus => lf - rf,
+                                    BoundBinOpKind.Star => lf * rf,
+                                    BoundBinOpKind.Slash => lf / rf,
+                                    BoundBinOpKind.Power => Math.Pow(lf, rf),
+                                    BoundBinOpKind.EqEq => Equals(lf, rf),
+                                    BoundBinOpKind.NotEq => !Equals(lf, rf),
+                                    BoundBinOpKind.Greater => lf > rf,
+                                    BoundBinOpKind.Less => lf < rf,
+                                    BoundBinOpKind.GreaterEq => lf >= rf,
+                                    BoundBinOpKind.LessEq => lf <= rf,
+                                    _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                                };
+                            else if (right is int ri) return b.Op.Kind switch
+                            {
+                                BoundBinOpKind.Plus => lf + ri,
+                                BoundBinOpKind.Minus => lf - ri,
+                                BoundBinOpKind.Star => lf * ri,
+                                BoundBinOpKind.Slash => lf / ri,
+                                BoundBinOpKind.Power => Math.Pow(lf, ri),
+                                BoundBinOpKind.EqEq => Equals(lf, ri),
+                                BoundBinOpKind.NotEq => !Equals(lf, ri),
+                                BoundBinOpKind.Greater => lf > ri,
+                                BoundBinOpKind.Less => lf < ri,
+                                BoundBinOpKind.GreaterEq => lf >= ri,
+                                BoundBinOpKind.LessEq => lf <= ri,
+                                _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                            };
+                        }
+                        else if (left is int li)
+                        {
+
+                            if (right is double rf)
+                                return b.Op.Kind switch
+                                {
+                                    BoundBinOpKind.Plus => li + rf,
+                                    BoundBinOpKind.Minus => li - rf,
+                                    BoundBinOpKind.Star => li * rf,
+                                    BoundBinOpKind.Slash => li / rf,
+                                    BoundBinOpKind.Power => Math.Pow(li, rf),
+                                    BoundBinOpKind.EqEq => Equals(li, rf),
+                                    BoundBinOpKind.NotEq => !Equals(li, rf),
+                                    BoundBinOpKind.Greater => li > rf,
+                                    BoundBinOpKind.Less => li < rf,
+                                    BoundBinOpKind.GreaterEq => li >= rf,
+                                    BoundBinOpKind.LessEq => li <= rf,
+                                    _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                                };
+                            else if (right is int ri) return b.Op.Kind switch
+                            {
+                                BoundBinOpKind.Plus => li + ri,
+                                BoundBinOpKind.Minus => li - ri,
+                                BoundBinOpKind.Star => li * ri,
+                                BoundBinOpKind.Slash => li / ri,
+                                BoundBinOpKind.Power => (int)Math.Pow(li, ri),
+                                BoundBinOpKind.Mod => (int)left % ri,
+                                BoundBinOpKind.And => (int)left & ri,
+                                BoundBinOpKind.Or => (int)left | ri,
+                                BoundBinOpKind.Xor => (int)left ^ ri,
+                                BoundBinOpKind.EqEq => Equals(li, ri),
+                                BoundBinOpKind.NotEq => !Equals(li, ri),
+                                BoundBinOpKind.Greater => li > ri,
+                                BoundBinOpKind.Less => li < ri,
+                                BoundBinOpKind.GreaterEq => li >= ri,
+                                BoundBinOpKind.LessEq => li <= ri,
+                                _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                            };
+                        }
+                        else if (left is bool lb)
+                            if (right is bool rb)
+                                return b.Op.Kind switch
+                                {
+                                    BoundBinOpKind.LogicAnd => lb && rb,
+                                    BoundBinOpKind.LogicOr => lb || rb,
+                                    BoundBinOpKind.EqEq => Equals(lb, rb),
+                                    BoundBinOpKind.NotEq => !Equals(lb, rb),
+                                    _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                                };
+
+                        break;
                     }
                 case BoundName n:
                     return _variables[n.Variable] ?? 0;

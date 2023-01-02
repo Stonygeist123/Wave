@@ -86,6 +86,10 @@
                     ++_position;
                     _kind = SyntaxKind.Xor;
                     break;
+                case '~':
+                    ++_position;
+                    _kind = SyntaxKind.Inv;
+                    break;
                 case '|':
                     ++_position;
                     if (Current == '|')

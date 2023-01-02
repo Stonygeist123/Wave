@@ -95,8 +95,6 @@ namespace Wave.Binding
         private BoundWhileStmt BindWhileStmt(WhileStmt w)
         {
             BoundExpr condition = BindExpr(w.Condition, typeof(bool));
-            if (condition.Type != typeof(bool))
-                _diagnostics.Report(w.Condition.Span, $"Condition needs to be a bool.");
 
             BoundStmt stmt = BindStmt(w.Stmt);
             return new(condition, stmt);
@@ -122,7 +120,7 @@ namespace Wave.Binding
         {
             BoundExpr boundExpr = BindExpr(expr);
             if (boundExpr.Type != targetType)
-                _diagnostics.Report(expr.Span, $"Cannot type of \"{boundExpr.Type}\" to \"{targetType}\".");
+                _diagnostics.Report(expr.Span, $"Cannot convert type of \"{boundExpr.Type}\" to \"{targetType}\".");
 
             return boundExpr;
         }

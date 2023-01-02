@@ -19,7 +19,8 @@
     {
         Plus,
         Minus,
-        Bang
+        Bang,
+        Inv
     }
 
     public enum BoundBinOpKind

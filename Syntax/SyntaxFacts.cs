@@ -18,7 +18,7 @@
 
         public static ushort GetUnOpPrecedence(this SyntaxKind kind) => kind switch
         {
-            SyntaxKind.Plus or SyntaxKind.Minus or SyntaxKind.Bang => 10,
+            SyntaxKind.Plus or SyntaxKind.Minus or SyntaxKind.Bang or SyntaxKind.Inv => 10,
             _ => 0,
         };
 
@@ -48,6 +48,10 @@
             SyntaxKind.LBrace => "{",
             SyntaxKind.RBrace => "}",
             SyntaxKind.Bang => "!",
+            SyntaxKind.And => "&",
+            SyntaxKind.Or => "|",
+            SyntaxKind.Xor => "^",
+            SyntaxKind.Inv => "~",
             SyntaxKind.LogicAnd => "&&",
             SyntaxKind.LogicOr => "||",
             SyntaxKind.EqEq => "==",

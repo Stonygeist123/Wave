@@ -9,8 +9,8 @@ namespace Wave.Nodes
         {
             get
             {
-                TextSpan? first = GetChildren().FirstOrDefault()?.Span,
-                    last = GetChildren().LastOrDefault()?.Span;
+                TextSpan? first = GetChildren().First()?.Span,
+                    last = GetChildren().Last()?.Span;
                 return TextSpan.From(first?.Start ?? 0, last?.End ?? 0);
             }
         }

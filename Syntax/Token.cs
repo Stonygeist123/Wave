@@ -15,6 +15,7 @@ namespace Wave
         And,
         Or,
         Xor,
+        Inv,
         LParen,
         RParen,
         LBrace,

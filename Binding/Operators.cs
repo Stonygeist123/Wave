@@ -25,6 +25,7 @@ namespace Wave.Binding
         private static readonly BoundUnOperator[] _operators = {
             new(SyntaxKind.Plus, BoundUnOpKind.Plus, typeof(int)),
             new(SyntaxKind.Minus, BoundUnOpKind.Minus, typeof(int)),
+            new(SyntaxKind.Inv, BoundUnOpKind.Inv, typeof(int)),
             new(SyntaxKind.Bang, BoundUnOpKind.Bang, typeof(bool))
         };
 
@@ -81,6 +82,42 @@ namespace Wave.Binding
             new(SyntaxKind.Less, BoundBinOpKind.Less, typeof(int), typeof(bool)),
             new(SyntaxKind.GreaterEq, BoundBinOpKind.GreaterEq, typeof(int), typeof(bool)),
             new(SyntaxKind.LessEq, BoundBinOpKind.LessEq, typeof(int), typeof(bool)),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, typeof(double)),
+            new(SyntaxKind.Minus, BoundBinOpKind.Minus, typeof(double)),
+            new(SyntaxKind.Star, BoundBinOpKind.Star, typeof(double)),
+            new(SyntaxKind.Slash, BoundBinOpKind.Slash, typeof(double)),
+            new(SyntaxKind.Power, BoundBinOpKind.Power, typeof(double)),
+            new(SyntaxKind.EqEq, BoundBinOpKind.EqEq, typeof(double), typeof(bool)),
+            new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, typeof(double), typeof(bool)),
+            new(SyntaxKind.Greater, BoundBinOpKind.Greater, typeof(double), typeof(bool)),
+            new(SyntaxKind.Less, BoundBinOpKind.Less, typeof(double), typeof(bool)),
+            new(SyntaxKind.GreaterEq, BoundBinOpKind.GreaterEq, typeof(double), typeof(bool)),
+            new(SyntaxKind.LessEq, BoundBinOpKind.LessEq, typeof(double), typeof(bool)),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, typeof(double), typeof(int), typeof(double)),
+            new(SyntaxKind.Minus, BoundBinOpKind.Minus, typeof(double), typeof(int), typeof(double)),
+            new(SyntaxKind.Star, BoundBinOpKind.Star, typeof(double), typeof(int), typeof(double)),
+            new(SyntaxKind.Slash, BoundBinOpKind.Slash, typeof(double), typeof(int), typeof(double)),
+            new(SyntaxKind.Power, BoundBinOpKind.Power, typeof(double), typeof(int), typeof(double)),
+            new(SyntaxKind.EqEq, BoundBinOpKind.EqEq, typeof(double), typeof(int), typeof(bool)),
+            new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, typeof(double), typeof(int), typeof(bool)),
+            new(SyntaxKind.Greater, BoundBinOpKind.Greater, typeof(double), typeof(int), typeof(bool)),
+            new(SyntaxKind.Less, BoundBinOpKind.Less, typeof(double), typeof(int), typeof(bool)),
+            new(SyntaxKind.GreaterEq, BoundBinOpKind.GreaterEq, typeof(double), typeof(int), typeof(bool)),
+            new(SyntaxKind.LessEq, BoundBinOpKind.LessEq, typeof(double), typeof(int), typeof(bool)),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, typeof(int), typeof(double), typeof(double)),
+            new(SyntaxKind.Minus, BoundBinOpKind.Minus,  typeof(int),typeof(double), typeof(double)),
+            new(SyntaxKind.Star, BoundBinOpKind.Star, typeof(int), typeof(double), typeof(double)),
+            new(SyntaxKind.Slash, BoundBinOpKind.Slash, typeof(int), typeof(double), typeof(double)),
+            new(SyntaxKind.Power, BoundBinOpKind.Power, typeof(int), typeof(double), typeof(double)),
+            new(SyntaxKind.EqEq, BoundBinOpKind.EqEq,  typeof(int),typeof(double), typeof(bool)),
+            new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, typeof(int), typeof(double), typeof(bool)),
+            new(SyntaxKind.Greater, BoundBinOpKind.Greater, typeof(int), typeof(double), typeof(bool)),
+            new(SyntaxKind.Less, BoundBinOpKind.Less, typeof(int), typeof(double), typeof(bool)),
+            new(SyntaxKind.GreaterEq, BoundBinOpKind.GreaterEq, typeof(int), typeof(double), typeof(bool)),
+            new(SyntaxKind.LessEq, BoundBinOpKind.LessEq, typeof(int), typeof(double), typeof(bool)),
 
             new(SyntaxKind.LogicAnd, BoundBinOpKind.LogicAnd, typeof(bool)),
             new(SyntaxKind.LogicOr, BoundBinOpKind.LogicOr, typeof(bool)),

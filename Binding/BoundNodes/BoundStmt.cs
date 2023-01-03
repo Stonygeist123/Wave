@@ -93,15 +93,15 @@ namespace Wave.Binding.BoundNodes
 
     internal sealed class BoundCondGotoStmt : BoundStmt
     {
-        public BoundCondGotoStmt(LabelSymbol label, BoundExpr condition, bool jumpIfFalse = false)
+        public BoundCondGotoStmt(LabelSymbol label, BoundExpr condition, bool jumpIfTrue = true)
         {
             Label = label;
             Condition = condition;
-            JumpIfFalse = jumpIfFalse;
+            JumpIfTrue = jumpIfTrue;
         }
         public override BoundNodeKind Kind => BoundNodeKind.CondGotoStmt;
         public LabelSymbol Label { get; }
         public BoundExpr Condition { get; }
-        public bool JumpIfFalse { get; }
+        public bool JumpIfTrue { get; }
     }
 }

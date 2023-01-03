@@ -117,7 +117,7 @@ namespace Wave.Binding
             if (condition == node.Condition)
                 return node;
 
-            return new BoundCondGotoStmt(node.Label, condition, node.JumpIfFalse);
+            return new BoundCondGotoStmt(node.Label, condition, node.JumpIfTrue);
         }
 
         protected virtual BoundExpr RewriteLiteralExpr(BoundLiteral node) => node;

@@ -55,7 +55,7 @@ namespace Wave
                     case BoundCondGotoStmt cg:
                         {
                             bool condition = (bool)EvaluateExpr(cg.Condition);
-                            if (condition && !cg.JumpIfFalse || !condition && cg.JumpIfFalse)
+                            if (condition == cg.JumpIfTrue)
                                 index = labelToIndex[cg.Label];
                             else
                                 ++index;

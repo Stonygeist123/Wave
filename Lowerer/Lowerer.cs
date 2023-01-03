@@ -44,7 +44,7 @@ namespace Wave.Lowerer
             if (node.ElseClause is null)
             {
                 LabelSymbol endLabel = GenerateLabel();
-                BoundCondGotoStmt gotoFalse = new(endLabel, node.Condition, true);
+                BoundCondGotoStmt gotoFalse = new(endLabel, node.Condition, false);
                 BoundLabelStmt endLabelStmt = new(endLabel);
                 return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(gotoFalse, node.ThenBranch, endLabelStmt)));
             }
@@ -52,7 +52,7 @@ namespace Wave.Lowerer
             {
                 LabelSymbol elseLabel = GenerateLabel();
                 LabelSymbol endLabel = GenerateLabel();
-                BoundCondGotoStmt gotoFalse = new(elseLabel, node.Condition, true);
+                BoundCondGotoStmt gotoFalse = new(elseLabel, node.Condition, false);
                 BoundGotoStmt gotoEndStmt = new(endLabel);
                 BoundLabelStmt elseLabelStmt = new(elseLabel);
                 BoundLabelStmt endLabelStmt = new(endLabel);
@@ -77,11 +77,25 @@ namespace Wave.Lowerer
         protected override BoundStmt RewriteForStmt(BoundForStmt node)
         {
             BoundVarStmt varDecl = new(node.Variable, node.LowerBound);
-            BoundName name = new(node.Variable);
-            BoundBinary condition = new(name, BoundBinOperator.Bind(SyntaxKind.LessEq, typeof(int), typeof(int))!, node.UpperBound);
-            BoundExpressionStmt increment = new(new BoundAssignment(node.Variable, new BoundBinary(name, BoundBinOperator.Bind(SyntaxKind.Plus, typeof(int), typeof(int))!, new BoundLiteral(1))));
+            BoundName varExpr = new(node.Variable);
+            VariableSymbol upperBoundSymbol = new("upperBound", typeof(int), false);
+            BoundVarStmt upperBoundDecl = new(upperBoundSymbol, node.UpperBound);
+            BoundBinary condition = new(varExpr, BoundBinOperator.Bind(SyntaxKind.LessEq, typeof(int), typeof(int))!, new BoundName(upperBoundSymbol));
+            BoundExpressionStmt increment = new(new BoundAssignment(
+                    node.Variable,
+                    new BoundBinary(
+                        varExpr,
+                        BoundBinOperator.Bind(SyntaxKind.Plus, typeof(int), typeof(int))!,
+                        new BoundLiteral(1))
+                    )
+                );
+
             BoundWhileStmt whileStmt = new(condition, new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(node.Stmt, increment)));
-            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(varDecl, whileStmt)));
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(
+                varDecl,
+                upperBoundDecl,
+                whileStmt
+                )));
         }
     }
 }

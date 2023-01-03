@@ -13,4 +13,11 @@
         public Type Type { get; }
         public bool IsMut { get; }
     }
+
+    public readonly struct LabelSymbol
+    {
+        public LabelSymbol(string name) => Name = name;
+        public string Name { get; }
+        public override string ToString() => Name;
+    }
 }

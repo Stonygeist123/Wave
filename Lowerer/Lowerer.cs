@@ -1,0 +1,87 @@
+﻿using System.Collections.Immutable;
+using Wave.Binding;
+using Wave.Binding.BoundNodes;
+
+namespace Wave.Lowerer
+{
+    internal sealed class Lowerer : BoundTreeRewriter
+    {
+        private int _labelCount = 0;
+        private Lowerer() { }
+
+        private LabelSymbol GenerateLabel() => new($"Label_{++_labelCount}");
+
+        public static BoundBlockStmt Lower(BoundStmt stmt)
+        {
+
+            Lowerer lowerer = new();
+            return Flatten(lowerer.RewriteStmt(stmt));
+        }
+
+        private static BoundBlockStmt Flatten(BoundStmt stmt)
+        {
+            ImmutableArray<BoundStmt>.Builder builder = ImmutableArray.CreateBuilder<BoundStmt>();
+            Stack<BoundStmt> stack = new();
+            stack.Push(stmt);
+
+            while (stack.Count > 0)
+            {
+                BoundStmt current = stack.Pop();
+                if (current is BoundBlockStmt b)
+                {
+                    foreach (BoundStmt s in b.Stmts.Reverse())
+                        stack.Push(s);
+                }
+                else
+                    builder.Add(current);
+            }
+
+            return new(builder.ToImmutable());
+        }
+
+        protected override BoundStmt RewriteIfStmt(BoundIfStmt node)
+        {
+            if (node.ElseClause is null)
+            {
+                LabelSymbol endLabel = GenerateLabel();
+                BoundCondGotoStmt gotoFalse = new(endLabel, node.Condition, true);
+                BoundLabelStmt endLabelStmt = new(endLabel);
+                return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(gotoFalse, node.ThenBranch, endLabelStmt)));
+            }
+            else
+            {
+                LabelSymbol elseLabel = GenerateLabel();
+                LabelSymbol endLabel = GenerateLabel();
+                BoundCondGotoStmt gotoFalse = new(elseLabel, node.Condition, true);
+                BoundGotoStmt gotoEndStmt = new(endLabel);
+                BoundLabelStmt elseLabelStmt = new(elseLabel);
+                BoundLabelStmt endLabelStmt = new(endLabel);
+                return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(gotoFalse, node.ThenBranch, gotoEndStmt, elseLabelStmt, node.ElseClause, endLabelStmt)));
+            }
+        }
+
+        protected override BoundStmt RewriteWhileStmt(BoundWhileStmt node)
+        {
+            LabelSymbol continueLabel = GenerateLabel();
+            LabelSymbol checkLabel = GenerateLabel();
+            LabelSymbol endLabel = GenerateLabel();
+
+            BoundGotoStmt gotoCheck = new(checkLabel);
+            BoundLabelStmt continueLabelStmt = new(continueLabel);
+            BoundLabelStmt checkLabelStmt = new(checkLabel);
+            BoundCondGotoStmt gotoTrue = new(continueLabel, node.Condition);
+            BoundLabelStmt endLabelStmt = new(endLabel);
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(gotoCheck, continueLabelStmt, node.Stmt, checkLabelStmt, gotoTrue, endLabelStmt)));
+        }
+
+        protected override BoundStmt RewriteForStmt(BoundForStmt node)
+        {
+            BoundVarStmt varDecl = new(node.Variable, node.LowerBound);
+            BoundName name = new(node.Variable);
+            BoundBinary condition = new(name, BoundBinOperator.Bind(SyntaxKind.LessEq, typeof(int), typeof(int))!, node.UpperBound);
+            BoundExpressionStmt increment = new(new BoundAssignment(node.Variable, new BoundBinary(name, BoundBinOperator.Bind(SyntaxKind.Plus, typeof(int), typeof(int))!, new BoundLiteral(1))));
+            BoundWhileStmt whileStmt = new(condition, new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(node.Stmt, increment)));
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(varDecl, whileStmt)));
+        }
+    }
+}

@@ -1,5 +1,34 @@
 ﻿namespace Wave.Binding.BoundNodes
 {
+    public enum BoundUnOpKind
+    {
+        Plus,
+        Minus,
+        Bang,
+        Inv
+    }
+
+    public enum BoundBinOpKind
+    {
+        Plus,
+        Minus,
+        Star,
+        Slash,
+        Power,
+        Mod,
+        And,
+        Or,
+        Xor,
+        LogicAnd,
+        LogicOr,
+        EqEq,
+        NotEq,
+        Greater,
+        Less,
+        GreaterEq,
+        LessEq
+    }
+
     public abstract class BoundExpr : BoundNode
     {
         public abstract Type Type { get; }
@@ -53,7 +82,7 @@
     public sealed class BoundAssignment : BoundExpr
     {
         public override Type Type => Value.Type;
-        public override BoundNodeKind Kind => BoundNodeKind.NameExpr;
+        public override BoundNodeKind Kind => BoundNodeKind.AssignmentExpr;
         public VariableSymbol Variable { get; }
         public BoundExpr Value { get; }
         public BoundAssignment(VariableSymbol variable, BoundExpr value)

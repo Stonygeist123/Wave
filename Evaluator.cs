@@ -5,10 +5,10 @@ namespace Wave
 {
     internal class Evaluator
     {
-        private readonly BoundStmt _root;
+        private readonly BoundBlockStmt _root;
         private readonly Dictionary<VariableSymbol, object?> _variables;
         private object? _lastValue = null;
-        public Evaluator(BoundStmt root, Dictionary<VariableSymbol, object?> variables)
+        public Evaluator(BoundBlockStmt root, Dictionary<VariableSymbol, object?> variables)
         {
             _root = root;
             _variables = variables;
@@ -16,62 +16,55 @@ namespace Wave
 
         public object? Evaluate()
         {
-            EvaluateStmt(_root);
-            return _lastValue;
-        }
+            Dictionary<LabelSymbol, int> labelToIndex = new();
+            for (int i = 0; i < _root.Stmts.Length; ++i)
+                if (_root.Stmts[i] is BoundLabelStmt l)
+                    labelToIndex.Add(l.Label, i + 1);
 
-        private void EvaluateStmt(BoundStmt stmt)
-        {
-            switch (stmt)
+            int index = 0;
+            while (index < _root.Stmts.Length)
             {
-                case BoundExpressionStmt e:
-                    {
-                        _lastValue = EvaluateExpr(e.Expr);
-                        break;
-                    }
-                case BoundBlockStmt b:
-                    {
-                        foreach (BoundStmt s in b.Stmts)
-                            EvaluateStmt(s);
-                        break;
-                    }
-                case BoundVarStmt v:
-                    {
-                        object value = EvaluateExpr(v.Value);
-                        _variables[v.Variable] = value;
-                        _lastValue = value;
-                        break;
-                    }
-                case BoundIfStmt i:
-                    {
-                        bool condition = (bool)EvaluateExpr(i.Condition);
-                        if (condition)
-                            EvaluateStmt(i.ThenBranch);
-                        else if (i.ElseClause is not null)
-                            EvaluateStmt(i.ElseClause);
-                        break;
-                    }
-                case BoundWhileStmt w:
-                    {
-                        bool condition = (bool)EvaluateExpr(w.Condition);
-                        while (condition)
-                            EvaluateStmt(w.Stmt);
-                        break;
-                    }
-                case BoundForStmt f:
-                    {
-                        int lowerBound = (int)EvaluateExpr(f.LowerBound);
-                        int upperBound = (int)EvaluateExpr(f.UpperBound);
+                BoundStmt s = _root.Stmts[index];
 
-                        for (int i = lowerBound; i <= upperBound; ++i)
+                switch (s)
+                {
+                    case BoundExpressionStmt e:
                         {
-                            _variables[f.Variable] = i;
-                            EvaluateStmt(f.Stmt);
+                            _lastValue = EvaluateExpr(e.Expr);
+                            ++index;
+                            break;
                         }
-
-                        break;
-                    }
+                    case BoundVarStmt v:
+                        {
+                            object value = EvaluateExpr(v.Value);
+                            _variables[v.Variable] = value;
+                            _lastValue = value;
+                            ++index;
+                            break;
+                        }
+                    case BoundLabelStmt:
+                        {
+                            ++index;
+                            break;
+                        }
+                    case BoundGotoStmt g:
+                        {
+                            index = labelToIndex[g.Label];
+                            break;
+                        }
+                    case BoundCondGotoStmt cg:
+                        {
+                            bool condition = (bool)EvaluateExpr(cg.Condition);
+                            if (condition && !cg.JumpIfFalse || !condition && cg.JumpIfFalse)
+                                index = labelToIndex[cg.Label];
+                            else
+                                ++index;
+                            break;
+                        }
+                }
             }
+
+            return _lastValue;
         }
 
         private object EvaluateExpr(BoundExpr expr)

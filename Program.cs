@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text;
+﻿using System.Text;
 using Wave.Binding;
 
 namespace Wave
@@ -8,7 +7,7 @@ namespace Wave
     {
         static void Main()
         {
-            bool showTree = false;
+            bool showTree = false, showProgram = false;
             Dictionary<VariableSymbol, object?> vars = new();
             StringBuilder textBuilder = new();
             Compilation? previous = null;
@@ -31,6 +30,13 @@ namespace Wave
                     else if (input.ToLower() == "#tree")
                     {
                         showTree = !showTree;
+                        Console.WriteLine($"{(showTree ? "Enabled" : "Disabled")} showing tree.\n");
+                        continue;
+                    }
+                    else if (input.ToLower() == "#program")
+                    {
+                        showProgram = !showProgram;
+                        Console.WriteLine($"{(showProgram ? "Enabled" : "Disabled")} showing program.\n");
                         continue;
                     }
                     else if (input.ToLower() == "#cls")
@@ -56,18 +62,21 @@ namespace Wave
                                 ? new(syntaxTree)
                                 : previous.ContinueWith(syntaxTree);
 
-                previous = compilation;
-                EvaluationResult result = compilation.Evaluate(vars);
-                ImmutableArray<Diagnostic> diagnostics = result.Diagnostics;
-
                 if (showTree)
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
                     syntaxTree.Root.WriteTo(Console.Out);
-                    Console.ResetColor();
+                    Console.WriteLine();
                 }
 
-                if (!diagnostics.Any())
+                if (showProgram)
+                {
+                    compilation.EmitTree(Console.Out);
+                    Console.WriteLine();
+                }
+
+                EvaluationResult result = compilation.Evaluate(vars);
+
+                if (!result.Diagnostics.Any())
                 {
                     Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine(result.Value);
@@ -77,7 +86,7 @@ namespace Wave
                 }
                 else
                 {
-                    foreach (Diagnostic d in diagnostics)
+                    foreach (Diagnostic d in result.Diagnostics)
                     {
                         int lineIndex = syntaxTree.Source.GetLineIndex(d.Span.Start);
                         int lineNumber = lineIndex + 1;

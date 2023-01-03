@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Wave.Binding;
+using Wave.Binding.BoundNodes;
 
 namespace Wave
 {
@@ -53,9 +54,17 @@ namespace Wave
             if (diagnostics.Any())
                 return new(diagnostics, null);
 
-            Evaluator evaluator = new(GlobalScope.Stmt, variables);
+            Evaluator evaluator = new(GetStmt(), variables);
             object? value = evaluator.Evaluate();
             return new(ImmutableArray<Diagnostic>.Empty, value);
         }
+
+        public void EmitTree(TextWriter writer)
+        {
+            BoundStmt stmt = GetStmt();
+            stmt.WriteTo(writer);
+        }
+
+        private BoundBlockStmt GetStmt() => Lowerer.Lowerer.Lower(GlobalScope.Stmt);
     }
 }

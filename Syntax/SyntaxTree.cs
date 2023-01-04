@@ -20,5 +20,21 @@ namespace Wave
 
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));
         public static SyntaxTree Parse(SourceText source) => new(source);
+
+        internal static List<Token> ParseTokens(string line)
+        {
+            Lexer lexer = new(SourceText.From(line));
+            List<Token> tokens = new();
+            while (true)
+            {
+                Token token = lexer.GetToken();
+                if (token.Kind == SyntaxKind.Eof)
+                    break;
+
+                tokens.Add(token);
+            }
+
+            return tokens;
+        }
     }
 }

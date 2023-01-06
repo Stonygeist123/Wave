@@ -1,4 +1,6 @@
-﻿namespace Wave.Nodes
+﻿using Wave.Syntax.Nodes;
+
+namespace Wave.Nodes
 {
     public sealed class CompilationUnit : Node
     {

@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Wave.Syntax.Nodes;
 
 namespace Wave.Nodes
 {
@@ -9,19 +10,19 @@ namespace Wave.Nodes
         {
             get
             {
-                TextSpan? first = GetChildren().First()?.Span,
-                    last = GetChildren().Last()?.Span;
-                return TextSpan.From(first?.Start ?? 0, last?.End ?? 0);
+                TextSpan first = GetChildren().First().Span,
+                    last = GetChildren().Last().Span;
+                return TextSpan.From(first.Start, last.End);
             }
         }
 
-        public IEnumerable<Node?> GetChildren()
+        public IEnumerable<Node> GetChildren()
         {
             PropertyInfo[]? properties = GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
             foreach (PropertyInfo property in properties)
             {
                 if (typeof(Node).IsAssignableFrom(property.PropertyType))
-                    yield return (Node?)property.GetValue(this);
+                    yield return (Node)property.GetValue(this)!;
                 else if (typeof(IEnumerable<Node>).IsAssignableFrom(property.PropertyType))
                 {
                     IEnumerable<Node>? children = (IEnumerable<Node>?)property.GetValue(this);
@@ -31,6 +32,15 @@ namespace Wave.Nodes
                 }
             }
         }
+
+        public Token GetLastToken()
+        {
+            if (this is Token token)
+                return token;
+
+            return GetChildren().Last().GetLastToken();
+        }
+
         public void WriteTo(TextWriter writer) => Print(writer, this);
 
         private static void Print(TextWriter writer, Node? node, string indent = "", bool isLast = true)

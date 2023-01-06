@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Wave.Binding;
 using Wave.Binding.BoundNodes;
+using Wave.Syntax.Nodes;
 
 namespace Wave.Lowerer
 {

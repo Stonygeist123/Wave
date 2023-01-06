@@ -1,4 +1,6 @@
-﻿namespace Wave
+﻿using Wave.Syntax.Nodes;
+
+namespace Wave
 {
     public static class SyntaxFacts
     {

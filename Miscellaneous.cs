@@ -30,17 +30,19 @@ namespace Wave
         private static ImmutableArray<TextLine> ParseLines(SourceText source, string text)
         {
             ImmutableArray<TextLine>.Builder result = ImmutableArray.CreateBuilder<TextLine>();
-            int position = 0, lineStart = 0;
+
+            int position = 0;
+            int lineStart = 0;
+
             while (position < text.Length)
             {
                 int lineBreakWidth = GetLineBreakWidth(text, position);
                 if (lineBreakWidth == 0)
-                {
                     ++position;
-                }
                 else
                 {
                     AddLine(result, source, position, lineStart, lineBreakWidth);
+
                     position += lineBreakWidth;
                     lineStart = position;
                 }
@@ -96,23 +98,23 @@ namespace Wave
         public int Length => _text.Length;
     }
 
-    public readonly struct TextLine
+    public sealed class TextLine
     {
-        public TextLine(SourceText text, int start, int length, int lengthWithLineBreak)
+        public TextLine(SourceText source, int start, int length, int lengthWithLineBreak)
         {
-            Text = text;
+            Source = source;
             Start = start;
             Length = length;
             LengthWithLineBreak = lengthWithLineBreak;
         }
 
-        public SourceText Text { get; }
+        public SourceText Source { get; }
         public int Start { get; }
         public int Length { get; }
         public int End => Start + Length;
         public int LengthWithLineBreak { get; }
         public TextSpan Span => new(Start, Length);
         public TextSpan SpanWithLineBreak => new(Start, LengthWithLineBreak);
-        public string ToString(TextSpan span) => Text.ToString(span.Start, span.Length);
+        public override string ToString() => Source.ToString(Span);
     }
 }

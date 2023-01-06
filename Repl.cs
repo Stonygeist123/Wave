@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using Wave.Binding;
+using Wave.Syntax.Nodes;
 
 namespace Wave
 {
@@ -256,15 +257,16 @@ namespace Wave
                 --view.CurrentLine;
                 document[view.CurrentLine] = prevLine + curLine;
                 view.CurrentColumn = prevLine.Length;
-                return;
             }
-
-            int lineIndex = view.CurrentLine;
-            string line = document[lineIndex];
-            string before = line[..(start - 1)];
-            string after = line[start..];
-            document[lineIndex] = before + after;
-            --view.CurrentColumn;
+            else
+            {
+                int lineIndex = view.CurrentLine;
+                string line = document[lineIndex];
+                string before = line[..(start - 1)];
+                string after = line[start..];
+                document[lineIndex] = before + after;
+                --view.CurrentColumn;
+            }
         }
 
         private static void HandleDelete(ObservableCollection<string> document, SubmissionView view)
@@ -273,11 +275,20 @@ namespace Wave
             string line = document[lineIndex];
             int start = view.CurrentColumn;
             if (start >= line.Length)
-                return;
+            {
+                if (view.CurrentLine >= document.Count - 1)
+                    return;
 
-            string before = line[..start];
-            string after = line[(start + 1)..];
-            document[lineIndex] = before + after;
+                string nextLine = document[view.CurrentLine + 1];
+                document[view.CurrentLine] = nextLine;
+                document.RemoveAt(view.CurrentLine + 1);
+            }
+            else
+            {
+                string before = line[..start];
+                string after = line[(start + 1)..];
+                document[lineIndex] = before + after;
+            }
         }
 
         private static void HandleHome(SubmissionView view) => view.CurrentColumn = 0;
@@ -312,6 +323,9 @@ namespace Wave
 
         private void UpdateDocumentFromHistory(ObservableCollection<string> document, SubmissionView view)
         {
+            if (!_history.Any())
+                return;
+
             document.Clear();
             string historyItem = _history[_historyIndex];
             string[] lines = historyItem.Split(Environment.NewLine);
@@ -359,7 +373,7 @@ namespace Wave
                 if (isKeyword)
                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
                 else if (token.Kind == SyntaxKind.Identifier)
-                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
                 else if (token.Kind == SyntaxKind.Int || token.Kind == SyntaxKind.Float)
                     Console.ForegroundColor = ConsoleColor.Cyan;
                 else
@@ -429,17 +443,22 @@ namespace Wave
             {
                 foreach (Diagnostic d in result.Diagnostics)
                 {
-                    int lineIndex = syntaxTree.Source.GetLineIndex(d.Span.Start);
+                    SourceText source = syntaxTree.Source;
+                    int lineIndex = source.GetLineIndex(d.Span.Start);
                     int lineNumber = lineIndex + 1;
-                    TextLine line = syntaxTree.Source.Lines[lineIndex];
+                    TextLine line = source.Lines[lineIndex];
                     int column = d.Span.Start - line.Start + 1;
+
                     Console.ForegroundColor = ConsoleColor.DarkRed;
-                    Console.Write($"[{lineNumber}:{column}]: ");
+                    Console.Write($"[{$"{lineNumber}:{column}"}]: ");
                     Console.ResetColor();
 
-                    string prefix = syntaxTree.Source.ToString(line.Start, d.Span.Start),
-                        error = syntaxTree.Source.ToString(d.Span),
-                        suffix = syntaxTree.Source[d.Span.End..];
+                    TextSpan prefixSpan = TextSpan.From(line.Start, d.Span.Start);
+                    TextSpan suffixSpan = TextSpan.From(d.Span.End, line.End);
+
+                    string prefix = source.ToString(prefixSpan),
+                        error = source.ToString(d.Span),
+                        suffix = source.ToString(suffixSpan);
 
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     Console.Write(prefix);
@@ -465,10 +484,7 @@ namespace Wave
                 return true;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            if (syntaxTree.Diagnostics.Any())
-                return false;
-
-            return true;
+            return !syntaxTree.Root.Stmt.GetLastToken().IsMissing;
         }
     }
 }

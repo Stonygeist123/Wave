@@ -1,6 +1,6 @@
 ﻿using Wave.Nodes;
 
-namespace Wave
+namespace Wave.Syntax.Nodes
 {
     public enum SyntaxKind
     {
@@ -84,5 +84,6 @@ namespace Wave
         public string Lexeme { get; }
         public object? Value { get; }
         public new TextSpan Span => new(Position, Lexeme.Length);
+        public bool IsMissing => string.IsNullOrEmpty(Lexeme);
     }
 }

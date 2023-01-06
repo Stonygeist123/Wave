@@ -1,4 +1,6 @@
-﻿namespace Wave
+﻿using Wave.Syntax.Nodes;
+
+namespace Wave
 {
     internal class Lexer
     {
@@ -22,8 +24,7 @@
             switch (Current)
             {
                 case '\0':
-                    _kind = SyntaxKind.Eof;
-                    break;
+                    return new(SyntaxKind.Eof, _start, "", null);
                 case '+':
                     ++_position;
                     _kind = SyntaxKind.Plus;
@@ -161,7 +162,7 @@
                     }
                     else if (char.IsLetter(Current) || Current == '_')
                     {
-                        while (char.IsLetter(Current) || Current == '_')
+                        while (char.IsLetterOrDigit(Current) || Current == '_')
                             ++_position;
 
                         _kind = SyntaxFacts.GetKeyWordKind(_source[_start.._position]);

@@ -1,4 +1,6 @@
-﻿namespace Wave.Nodes
+﻿using Wave.Syntax.Nodes;
+
+namespace Wave.Nodes
 {
     public abstract class ExprNode : Node { }
     public sealed class LiteralExpr : ExprNode

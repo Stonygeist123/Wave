@@ -9,7 +9,7 @@ namespace Wave
         private SyntaxTree(SourceText source)
         {
             Parser parser = new(source);
-            CompilationUnit root = parser.ParseCompilationUnit(); ;
+            CompilationUnit root = parser.ParseCompilationUnit();
             Diagnostics = parser.Diagnostics.ToImmutableArray();
             Source = source;
             Root = root;
@@ -22,20 +22,27 @@ namespace Wave
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));
         public static SyntaxTree Parse(SourceText source) => new(source);
 
-        internal static List<Token> ParseTokens(string line)
+        internal static ImmutableArray<Token> ParseTokens(string line) => ParseTokens(line, out _);
+        internal static ImmutableArray<Token> ParseTokens(SourceText source) => ParseTokens(source, out _);
+        internal static ImmutableArray<Token> ParseTokens(string line, out ImmutableArray<Diagnostic> diagnostics) => ParseTokens(SourceText.From(line), out diagnostics);
+        internal static ImmutableArray<Token> ParseTokens(SourceText source, out ImmutableArray<Diagnostic> diagnostics)
         {
-            Lexer lexer = new(SourceText.From(line));
-            List<Token> tokens = new();
-            while (true)
+            static IEnumerable<Token> LexTokens(Lexer lexer)
             {
-                Token token = lexer.GetToken();
-                if (token.Kind == SyntaxKind.Eof)
-                    break;
+                while (true)
+                {
+                    Token token = lexer.GetToken();
+                    if (token.Kind == SyntaxKind.Eof)
+                        break;
 
-                tokens.Add(token);
+                    yield return token;
+                }
             }
 
-            return tokens;
+            Lexer lexer = new(source);
+            IEnumerable<Token> result = LexTokens(lexer);
+            diagnostics = lexer.Diagnostics.ToImmutableArray();
+            return result.ToImmutableArray();
         }
     }
 }

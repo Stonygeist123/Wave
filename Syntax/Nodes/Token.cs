@@ -30,6 +30,7 @@ namespace Wave.Syntax.Nodes
         GreaterEq,
         LessEq,
         Eq,
+        Comma,
         Semicolon,
         Arrow,
         Bad,
@@ -39,6 +40,7 @@ namespace Wave.Syntax.Nodes
         Int,
         Float,
         Identifier,
+        String,
 
         // Keywords
         True,
@@ -59,6 +61,8 @@ namespace Wave.Syntax.Nodes
         UnaryExpr,
         GroupingExpr,
         NameExpr,
+        AssignmentExpr,
+        CallExpr,
 
         // Stmt
         ExpressionStmt,
@@ -71,11 +75,11 @@ namespace Wave.Syntax.Nodes
 
     public class Token : Node
     {
-        public Token(SyntaxKind kind, int position, string lexeme, object? value = null)
+        public Token(SyntaxKind kind, int position, string? lexeme, object? value = null)
         {
             Kind = kind;
             Position = position;
-            Lexeme = lexeme;
+            Lexeme = lexeme ?? string.Empty;
             Value = value;
         }
 
@@ -83,7 +87,7 @@ namespace Wave.Syntax.Nodes
         public int Position { get; }
         public string Lexeme { get; }
         public object? Value { get; }
-        public new TextSpan Span => new(Position, Lexeme.Length);
+        public override TextSpan Span => new(Position, Lexeme.Length);
         public bool IsMissing => string.IsNullOrEmpty(Lexeme);
     }
 }

@@ -63,6 +63,7 @@ namespace Wave
             SyntaxKind.GreaterEq => ">=",
             SyntaxKind.LessEq => "<=",
             SyntaxKind.Eq => "=",
+            SyntaxKind.Comma => ",",
             SyntaxKind.Semicolon => ";",
             SyntaxKind.Arrow => "->",
             SyntaxKind.True => "true",

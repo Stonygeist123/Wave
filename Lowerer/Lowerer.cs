@@ -79,14 +79,14 @@ namespace Wave.Lowerer
         {
             BoundVarStmt varDecl = new(node.Variable, node.LowerBound);
             BoundName varExpr = new(node.Variable);
-            VariableSymbol upperBoundSymbol = new("upperBound", typeof(int), false);
+            VariableSymbol upperBoundSymbol = new("upperBound", TypeSymbol.Int, false);
             BoundVarStmt upperBoundDecl = new(upperBoundSymbol, node.UpperBound);
-            BoundBinary condition = new(varExpr, BoundBinOperator.Bind(SyntaxKind.LessEq, typeof(int), typeof(int))!, new BoundName(upperBoundSymbol));
+            BoundBinary condition = new(varExpr, BoundBinOperator.Bind(SyntaxKind.LessEq, TypeSymbol.Int, TypeSymbol.Int)!, new BoundName(upperBoundSymbol));
             BoundExpressionStmt increment = new(new BoundAssignment(
                     node.Variable,
                     new BoundBinary(
                         varExpr,
-                        BoundBinOperator.Bind(SyntaxKind.Plus, typeof(int), typeof(int))!,
+                        BoundBinOperator.Bind(SyntaxKind.Plus, TypeSymbol.Int, TypeSymbol.Int)!,
                         new BoundLiteral(1))
                     )
                 );

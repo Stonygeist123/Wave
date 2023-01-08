@@ -9,7 +9,9 @@ namespace Wave
         private readonly ImmutableArray<Token> _tokens;
         private int _position = 0;
         private readonly DiagnosticBag _diagnostics = new();
+#pragma warning disable IDE0052 // Remove unread private members
         private readonly SourceText _source;
+#pragma warning restore IDE0052 // Remove unread private members
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
@@ -160,29 +162,36 @@ namespace Wave
 
         private ExprNode ParsePrimaryExpr()
         {
-            switch (Current.Kind)
+            return Current.Kind switch
             {
-                case SyntaxKind.LParen:
-                    {
-                        Token lParen = Advance();
-                        ExprNode expr = ParseExpr();
-                        Token rParen = Match(SyntaxKind.RParen);
-                        return new GroupingExpr(lParen, expr, rParen);
-                    }
-                case SyntaxKind.Identifier:
-                    {
-                        Token id = Advance();
-                        return new NameExpr(id);
-                    }
-                case SyntaxKind.True:
-                case SyntaxKind.False:
-                    return new LiteralExpr(Current, Advance().Kind == SyntaxKind.True);
-                case SyntaxKind.Float:
-                    return new LiteralExpr(Advance());
-                default:
-                    Token number = Match(SyntaxKind.Int);
-                    return new LiteralExpr(number);
+                SyntaxKind.LParen => new GroupingExpr(Advance(), ParseExpr(), Match(SyntaxKind.RParen)),
+                SyntaxKind.True or SyntaxKind.False => new LiteralExpr(Current, Advance().Kind == SyntaxKind.True),
+                SyntaxKind.Int => new LiteralExpr(Match(SyntaxKind.Int)),
+                SyntaxKind.Float => new LiteralExpr(Advance()),
+                SyntaxKind.String => new LiteralExpr(Advance()),
+                SyntaxKind.Identifier or _ => ParseIdentifier(),
+            };
+        }
+
+        private ExprNode ParseIdentifier()
+        {
+            if (Current.Kind == SyntaxKind.Identifier && Peek(1).Kind == SyntaxKind.LParen)
+            {
+
+                Token callee = Match(SyntaxKind.Identifier);
+                Token lParen = Match(SyntaxKind.LParen);
+                ImmutableArray<Node>.Builder args = ImmutableArray.CreateBuilder<Node>();
+                while (Current.Kind != SyntaxKind.RParen && Current.Kind != SyntaxKind.Eof)
+                {
+                    args.Add(ParseExpr());
+                    if (Current.Kind != SyntaxKind.RParen)
+                        args.Add(Match(SyntaxKind.Comma));
+                }
+
+                return new CallExpr(callee, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));
             }
+
+            return new NameExpr(Match(SyntaxKind.Identifier));
         }
 
         private Token Match(SyntaxKind kind)
@@ -190,8 +199,8 @@ namespace Wave
             if (Current.Kind == kind)
                 return Advance();
 
-            _diagnostics.Report(Current.Span, $"Unexpected token: \"{Current.Kind}\" - expected \"{kind}\".");
-            return Current;
+            _diagnostics.Report(Current.Span, $"Got \"{SyntaxFacts.GetLexeme(Current.Kind) ?? Current.Kind.ToString()}\" - expected \"{SyntaxFacts.GetLexeme(kind) ?? kind.ToString()}\".");
+            return new(kind, Current.Position, null, null);
         }
 
         private Token Advance()

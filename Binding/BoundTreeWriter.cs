@@ -28,6 +28,8 @@ namespace Wave.Binding
                 BoundNodeKind.BinaryExpr => RewriteBinaryExpr((BoundBinary)node),
                 BoundNodeKind.NameExpr => RewriteNameExpr((BoundName)node),
                 BoundNodeKind.AssignmentExpr => RewriteAssignmentExpr((BoundAssignment)node),
+                BoundNodeKind.CallExpr => RewriteCallExpr((BoundCall)node),
+                BoundNodeKind.ErrorExpr => RewriteErrorExpr((BoundError)node),
                 _ => throw new Exception($"Unexpected node to lower: \"{node.Kind}\"."),
             };
         }
@@ -149,5 +151,34 @@ namespace Wave.Binding
 
             return new BoundAssignment(node.Variable, value);
         }
+
+        protected virtual BoundExpr RewriteCallExpr(BoundCall node)
+        {
+            ImmutableArray<BoundExpr>.Builder? builder = null;
+            for (int i = 0; i < node.Args.Length; i++)
+            {
+                BoundExpr stmt = node.Args[i];
+                BoundExpr oldExpr = stmt;
+                BoundExpr newExpr = RewriteExpr(oldExpr);
+                if (newExpr != oldExpr)
+                {
+                    if (builder is null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpr>(node.Args.Length);
+                        for (int j = 0; j < i; ++j)
+                            builder.Add(node.Args[j]);
+                    }
+                }
+
+                builder?.Add(newExpr);
+            }
+
+            if (builder is null)
+                return node;
+
+            return new BoundCall(node.Function, builder.MoveToImmutable());
+        }
+
+        protected virtual BoundExpr RewriteErrorExpr(BoundError node) => node;
     }
 }

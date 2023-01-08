@@ -1,4 +1,5 @@
-﻿using Wave.Syntax.Nodes;
+﻿using System.Text;
+using Wave.Syntax.Nodes;
 
 namespace Wave
 {
@@ -24,7 +25,8 @@ namespace Wave
             switch (Current)
             {
                 case '\0':
-                    return new(SyntaxKind.Eof, _start, "", null);
+                    _kind = SyntaxKind.Eof;
+                    break;
                 case '+':
                     ++_position;
                     _kind = SyntaxKind.Plus;
@@ -147,19 +149,28 @@ namespace Wave
                     else
                         LexNumber();
                     break;
+                case ',':
+                    ++_position;
+                    _kind = SyntaxKind.Comma;
+                    break;
                 case ';':
                     ++_position;
                     _kind = SyntaxKind.Semicolon;
+                    break;
+                case '"':
+                    LexString();
+                    break;
+                case ' ':
+                case '\n':
+                case '\r':
+                case '\t':
+                    LexWhitespace();
                     break;
                 default:
                     if (char.IsDigit(Current))
                         LexNumber();
                     else if (char.IsWhiteSpace(Current))
-                    {
-                        _kind = SyntaxKind.Space;
-                        while (char.IsWhiteSpace(Current))
-                            ++_position;
-                    }
+                        LexWhitespace();
                     else if (char.IsLetter(Current) || Current == '_')
                     {
                         while (char.IsLetterOrDigit(Current) || Current == '_')
@@ -177,6 +188,65 @@ namespace Wave
 
             string text = SyntaxFacts.GetLexeme(_kind) ?? _source[_start.._position];
             return new(_kind, _start, text, _value);
+        }
+
+        private void LexWhitespace()
+        {
+            _kind = SyntaxKind.Space;
+            bool done = false;
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\0':
+                    case '\r':
+                    case '\n':
+                        done = true;
+                        break;
+                    default:
+                        if (!char.IsWhiteSpace(Current))
+                            done = true;
+                        else
+                            ++_position;
+                        break;
+                }
+            }
+        }
+
+        private void LexString()
+        {
+            ++_position;
+            StringBuilder sb = new();
+            bool done = false;
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\0':
+                    case '\r':
+                    case '\n':
+                        _diagnostics.Report(new(_start, _position - _start), $"Unterminated string literal.");
+                        done = true;
+                        break;
+                    case '"':
+                        ++_position;
+                        if (Current == '"')
+                        {
+                            sb.Append('"');
+                            ++_position;
+                        }
+                        else
+                            done = true;
+                        break;
+                    default:
+                        sb.Append(Current);
+                        ++_position;
+                        break;
+                }
+            }
+
+            _kind = SyntaxKind.String;
+            _value = sb.ToString();
         }
 
         private void LexNumber()

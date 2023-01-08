@@ -20,7 +20,7 @@ namespace Wave.Binding
             return true;
         }
 
-        public bool TryLookup(string name, out VariableSymbol variable)
+        public bool TryLookup(string name, out VariableSymbol? variable)
         {
             if (_variables.TryGetValue(name, out variable))
                 return true;

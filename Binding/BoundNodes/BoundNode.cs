@@ -10,6 +10,8 @@ namespace Wave.Binding.BoundNodes
         BinaryExpr,
         NameExpr,
         AssignmentExpr,
+        CallExpr,
+        ErrorExpr,
 
         // Stmt
         ExpressionStmt,

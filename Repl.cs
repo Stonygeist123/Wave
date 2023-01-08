@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using Wave.Binding;
 using Wave.Syntax.Nodes;
@@ -88,7 +89,7 @@ namespace Wave
                 UpdateCursorPosition();
             }
 
-            private void UpdateCursorPosition() => Console.SetCursorPosition(2 + _currentColumn, _cursorTop + _currentLine);
+            private void UpdateCursorPosition() => Console.SetCursorPosition(2 + CurrentColumn, _cursorTop + CurrentLine);
             public int CurrentLine
             {
                 get => _currentLine;
@@ -366,19 +367,19 @@ namespace Wave
 
         protected override void RenderLine(string line)
         {
-            List<Token> tokens = SyntaxTree.ParseTokens(line);
+            ImmutableArray<Token> tokens = SyntaxTree.ParseTokens(line);
             foreach (Token token in tokens)
             {
-                bool isKeyword = SyntaxFacts.GetKeyWordKind(token.Lexeme) != SyntaxKind.Identifier;
-                if (isKeyword)
+                if (token.Kind == SyntaxKind.Int || token.Kind == SyntaxKind.Float || token.Kind == SyntaxKind.True || token.Kind == SyntaxKind.False)
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                else if (SyntaxFacts.GetKeyWordKind(token.Lexeme ?? "?") != SyntaxKind.Identifier)
                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
                 else if (token.Kind == SyntaxKind.Identifier)
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                else if (token.Kind == SyntaxKind.Int || token.Kind == SyntaxKind.Float)
-                    Console.ForegroundColor = ConsoleColor.Cyan;
+                else if (token.Kind == SyntaxKind.String)
+                    Console.ForegroundColor = ConsoleColor.Green;
                 else
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-
 
                 Console.Write(token.Lexeme);
                 Console.ResetColor();
@@ -433,10 +434,16 @@ namespace Wave
 
             if (!result.Diagnostics.Any())
             {
-                Console.ForegroundColor = ConsoleColor.DarkBlue;
-                Console.WriteLine(result.Value);
+                if (result.Value is not null)
+                {/*
+                    Console.ForegroundColor = ConsoleColor.DarkBlue;
+                    Console.WriteLine(result.Value);
+                    Console.WriteLine();
+                    Console.ResetColor();*/
+                }
+
                 Console.WriteLine();
-                Console.ResetColor();
+
                 _previous = compilation;
             }
             else
@@ -471,8 +478,8 @@ namespace Wave
 
                     Console.ForegroundColor = ConsoleColor.DarkRed;
                     Console.Write(new string(' ', prefix.Length + 7));
-                    Console.Write(new string('^', Math.Clamp(1, error.Length, error.Length + 1)));
-                    Console.WriteLine(' ' + d.ToString() + '\n');
+                    Console.Write(new string('^', error.Length == 0 ? 1 : error.Length));
+                    Console.WriteLine($" {d}\n");
                     Console.ResetColor();
                 }
             }
@@ -481,6 +488,9 @@ namespace Wave
         protected override bool IsCompleteSubmission(string text)
         {
             if (string.IsNullOrEmpty(text))
+                return true;
+
+            if (text.Split(Environment.NewLine).Reverse().Where(string.IsNullOrEmpty).Take(2).Count() == 2)
                 return true;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);

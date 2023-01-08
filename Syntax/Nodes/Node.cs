@@ -10,9 +10,8 @@ namespace Wave.Nodes
         {
             get
             {
-                TextSpan first = GetChildren().First().Span,
-                    last = GetChildren().Last().Span;
-                return TextSpan.From(first.Start, last.End);
+                IEnumerable<Node> children = GetChildren();
+                return TextSpan.From(children.First().Span.Start, children.Last().Span.End);
             }
         }
 
@@ -22,13 +21,18 @@ namespace Wave.Nodes
             foreach (PropertyInfo property in properties)
             {
                 if (typeof(Node).IsAssignableFrom(property.PropertyType))
-                    yield return (Node)property.GetValue(this)!;
-                else if (typeof(IEnumerable<Node>).IsAssignableFrom(property.PropertyType))
                 {
-                    IEnumerable<Node>? children = (IEnumerable<Node>?)property.GetValue(this);
+                    Node? child = (Node?)property.GetValue(this);
+                    if (child is not null)
+                        yield return child;
+                }
+                else if (typeof(IEnumerable<Node?>).IsAssignableFrom(property.PropertyType))
+                {
+                    IEnumerable<Node?>? children = (IEnumerable<Node?>?)property.GetValue(this);
                     if (children is not null)
-                        foreach (var child in children)
-                            yield return child;
+                        foreach (Node? child in children)
+                            if (child is not null)
+                                yield return child;
                 }
             }
         }

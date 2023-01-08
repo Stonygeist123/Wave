@@ -1,4 +1,6 @@
-﻿namespace Wave.Binding.BoundNodes
+﻿using System.Collections.Immutable;
+
+namespace Wave.Binding.BoundNodes
 {
     public enum BoundUnOpKind
     {
@@ -31,20 +33,33 @@
 
     public abstract class BoundExpr : BoundNode
     {
-        public abstract Type Type { get; }
+        public abstract TypeSymbol Type { get; }
     }
 
     public sealed class BoundLiteral : BoundExpr
     {
-        public override Type Type => Value.GetType();
+        public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.LiteralExpr;
         public object Value { get; }
-        public BoundLiteral(object value) => Value = value;
+        public BoundLiteral(object value)
+        {
+            Value = value;
+            if (value is int)
+                Type = TypeSymbol.Int;
+            else if (value is double)
+                Type = TypeSymbol.Float;
+            else if (value is bool)
+                Type = TypeSymbol.Bool;
+            else if (value is string)
+                Type = TypeSymbol.String;
+            else
+                throw new Exception($"Unexpected literal \"{value}\" of type \"{value.GetType()}\".");
+        }
     }
 
     public sealed class BoundUnary : BoundExpr
     {
-        public override Type Type => Op.ResultType;
+        public override TypeSymbol Type => Op.ResultType;
         public override BoundNodeKind Kind => BoundNodeKind.UnaryExpr;
         public BoundUnOperator Op { get; }
         public BoundExpr Operand { get; }
@@ -57,7 +72,7 @@
 
     public sealed class BoundBinary : BoundExpr
     {
-        public override Type Type => Op.ResultType;
+        public override TypeSymbol Type => Op.ResultType;
         public override BoundNodeKind Kind => BoundNodeKind.BinaryExpr;
         public BoundExpr Left { get; }
         public BoundBinOperator Op { get; }
@@ -73,7 +88,7 @@
 
     public sealed class BoundName : BoundExpr
     {
-        public override Type Type => Variable.Type;
+        public override TypeSymbol Type => Variable.Type;
         public override BoundNodeKind Kind => BoundNodeKind.NameExpr;
         public VariableSymbol Variable { get; }
         public BoundName(VariableSymbol variable) => Variable = variable;
@@ -81,7 +96,7 @@
 
     public sealed class BoundAssignment : BoundExpr
     {
-        public override Type Type => Value.Type;
+        public override TypeSymbol Type => Value.Type;
         public override BoundNodeKind Kind => BoundNodeKind.AssignmentExpr;
         public VariableSymbol Variable { get; }
         public BoundExpr Value { get; }
@@ -90,5 +105,25 @@
             Variable = variable;
             Value = value;
         }
+    }
+
+    public sealed class BoundCall : BoundExpr
+    {
+        public override TypeSymbol Type => Function.Type;
+        public override BoundNodeKind Kind => BoundNodeKind.CallExpr;
+        public FunctionSymbol Function { get; }
+        public ImmutableArray<BoundExpr> Args { get; }
+
+        public BoundCall(FunctionSymbol function, ImmutableArray<BoundExpr> args)
+        {
+            Function = function;
+            Args = args;
+        }
+    }
+
+    public sealed class BoundError : BoundExpr
+    {
+        public override TypeSymbol Type => TypeSymbol.Unknown;
+        public override BoundNodeKind Kind => BoundNodeKind.ErrorExpr;
     }
 }

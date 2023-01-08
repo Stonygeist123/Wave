@@ -70,7 +70,7 @@ namespace Wave.Nodes
 
     public sealed class AssignmentExpr : ExprNode
     {
-        public override SyntaxKind Kind => SyntaxKind.NameExpr;
+        public override SyntaxKind Kind => SyntaxKind.AssignmentExpr;
         public Token Identifier { get; }
         public Token EqToken { get; }
         public ExprNode Value { get; }
@@ -79,6 +79,22 @@ namespace Wave.Nodes
             Identifier = identifier;
             EqToken = eqToken;
             Value = value;
+        }
+    }
+
+    public sealed class CallExpr : ExprNode
+    {
+        public override SyntaxKind Kind => SyntaxKind.CallExpr;
+        public Token Callee { get; }
+        public Token LParen { get; }
+        public SeparatedList<ExprNode> Args { get; }
+        public Token RParen { get; }
+        public CallExpr(Token callee, Token lParen, SeparatedList<ExprNode> args, Token rParen)
+        {
+            Callee = callee;
+            LParen = lParen;
+            Args = args;
+            RParen = rParen;
         }
     }
 }

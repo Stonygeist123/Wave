@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 
 namespace Wave
 {
@@ -23,5 +24,6 @@ namespace Wave
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public void AddRange(DiagnosticBag diagnostics) => _diagnostics.AddRange(diagnostics);
+        public void AddRange(ImmutableArray<Diagnostic> diagnostics) => _diagnostics.AddRange(diagnostics);
     }
 }

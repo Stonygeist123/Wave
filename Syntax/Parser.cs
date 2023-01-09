@@ -17,28 +17,17 @@ namespace Wave
 
         public Parser(SourceText source)
         {
-            Lexer lexer = new(source);
-            List<Token> tokens = new();
-            while (true)
-            {
-                Token t = lexer.GetToken();
-                if (t.Kind != SyntaxKind.Bad && t.Kind != SyntaxKind.Space)
-                    tokens.Add(t);
-
-                if (t.Kind == SyntaxKind.Eof)
-                    break;
-            }
-
-            _tokens = tokens.ToImmutableArray();
-            _diagnostics.AddRange(lexer.Diagnostics);
+            ImmutableArray<Token> tokens = SyntaxTree.ParseTokens(source, out ImmutableArray<Diagnostic> diagnostics);
+            _tokens = tokens.Where(t => t.Kind != SyntaxKind.Space).ToImmutableArray();
+            _diagnostics.AddRange(diagnostics);
             _source = source;
         }
 
         public CompilationUnit ParseCompilationUnit()
         {
-            StmtNode expr = ParseStmt();
+            StmtNode stmt = ParseStmt();
             Token eofToken = Match(SyntaxKind.Eof);
-            return new(expr, eofToken);
+            return new(stmt, eofToken);
         }
 
         private StmtNode ParseStmt() => Current.Kind switch

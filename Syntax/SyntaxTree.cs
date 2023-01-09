@@ -21,26 +21,22 @@ namespace Wave
 
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));
         public static SyntaxTree Parse(SourceText source) => new(source);
-
         internal static ImmutableArray<Token> ParseTokens(string line) => ParseTokens(line, out _);
         internal static ImmutableArray<Token> ParseTokens(SourceText source) => ParseTokens(source, out _);
         internal static ImmutableArray<Token> ParseTokens(string line, out ImmutableArray<Diagnostic> diagnostics) => ParseTokens(SourceText.From(line), out diagnostics);
         internal static ImmutableArray<Token> ParseTokens(SourceText source, out ImmutableArray<Diagnostic> diagnostics)
         {
-            static IEnumerable<Token> LexTokens(Lexer lexer)
-            {
-                while (true)
-                {
-                    Token token = lexer.GetToken();
-                    if (token.Kind == SyntaxKind.Eof)
-                        break;
-
-                    yield return token;
-                }
-            }
 
             Lexer lexer = new(source);
-            IEnumerable<Token> result = LexTokens(lexer);
+            List<Token> result = new();
+            while (true)
+            {
+                Token token = lexer.GetToken();
+                result.Add(token);
+                if (token.Kind == SyntaxKind.Eof)
+                    break;
+            }
+
             diagnostics = lexer.Diagnostics.ToImmutableArray();
             return result.ToImmutableArray();
         }

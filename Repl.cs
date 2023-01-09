@@ -89,7 +89,7 @@ namespace Wave
                 UpdateCursorPosition();
             }
 
-            private void UpdateCursorPosition() => Console.SetCursorPosition(2 + CurrentColumn, _cursorTop + CurrentLine);
+            private void UpdateCursorPosition() => Console.SetCursorPosition(2 + _currentColumn, _cursorTop + _currentLine);
             public int CurrentLine
             {
                 get => _currentLine;

@@ -59,7 +59,7 @@ namespace Wave.Binding
             };
         }
 
-        private BoundExpressionStmt BindExpressionStmt(ExpressionStmt e) => new(BindExpr(e.Expr));
+        private BoundExpressionStmt BindExpressionStmt(ExpressionStmt e) => new(BindExpr(e.Expr, true));
         private BoundBlockStmt BindBlockStmt(BlockStmt b)
         {
             ImmutableArray<BoundStmt>.Builder stmts = ImmutableArray.CreateBuilder<BoundStmt>();
@@ -115,6 +115,17 @@ namespace Wave.Binding
             BoundExpr boundExpr = BindExpr(expr);
             if (targetType != TypeSymbol.Unknown && boundExpr.Type != TypeSymbol.Unknown && boundExpr.Type != targetType)
                 _diagnostics.Report(expr.Span, $"Cannot convert type of \"{boundExpr.Type}\" to \"{targetType}\".");
+            return boundExpr;
+        }
+
+        private BoundExpr BindExpr(ExprNode expr, bool canBeVoid = false)
+        {
+            BoundExpr boundExpr = BindExpr(expr);
+            if (!canBeVoid && boundExpr.Type != TypeSymbol.Void)
+            {
+                _diagnostics.Report(expr.Span, $"Expression must have a value.");
+                return new BoundError();
+            }
 
             return boundExpr;
         }

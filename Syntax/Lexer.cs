@@ -160,17 +160,22 @@ namespace Wave
                 case '"':
                     LexString();
                     break;
-                case ' ':
                 case '\n':
                 case '\r':
+                    if (Current == '\r' && _source[_position + 1] == '\n')
+                        _position += 2;
+                    else
+                        _position++;
+
+                    _kind = SyntaxKind.Space;
+                    break;
+                case ' ':
                 case '\t':
                     LexWhitespace();
                     break;
                 default:
                     if (char.IsDigit(Current))
                         LexNumber();
-                    else if (char.IsWhiteSpace(Current))
-                        LexWhitespace();
                     else if (char.IsLetter(Current) || Current == '_')
                     {
                         while (char.IsLetterOrDigit(Current) || Current == '_')

@@ -32,6 +32,7 @@ namespace Wave.Syntax.Nodes
         Eq,
         Comma,
         Semicolon,
+        Colon,
         Arrow,
         Bad,
         Eof,
@@ -50,10 +51,17 @@ namespace Wave.Syntax.Nodes
         If,
         Else,
         While,
+        Do,
         For,
+        Fn,
 
         // Nodes
         CompilationUnit,
+        FnDecl,
+        GlobalStmt,
+        ElseClause,
+        TypeClause,
+        ParameterSyntax,
 
         // Expr
         LiteralExpr,
@@ -69,7 +77,6 @@ namespace Wave.Syntax.Nodes
         BlockStmt,
         VarStmt,
         IfStmt,
-        ElseClause,
         ForStmt
     }
 

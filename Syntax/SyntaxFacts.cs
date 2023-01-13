@@ -34,12 +34,13 @@ namespace Wave
             "else" => SyntaxKind.Else,
             "while" => SyntaxKind.While,
             "for" => SyntaxKind.For,
+            "fn" => SyntaxKind.Fn,
+            "do" => SyntaxKind.Do,
             _ => SyntaxKind.Identifier,
         };
 
         public static string? GetLexeme(SyntaxKind kind) => kind switch
         {
-            SyntaxKind.Space => " ",
             SyntaxKind.Plus => "+",
             SyntaxKind.Minus => "-",
             SyntaxKind.Star => "*",
@@ -65,6 +66,7 @@ namespace Wave
             SyntaxKind.Eq => "=",
             SyntaxKind.Comma => ",",
             SyntaxKind.Semicolon => ";",
+            SyntaxKind.Colon => ":",
             SyntaxKind.Arrow => "->",
             SyntaxKind.True => "true",
             SyntaxKind.False => "false",
@@ -72,6 +74,8 @@ namespace Wave
             SyntaxKind.Mut => "mut",
             SyntaxKind.While => "while",
             SyntaxKind.For => "for",
+            SyntaxKind.Fn => "fn",
+            SyntaxKind.Do => "do",
             _ => null,
         };
     }

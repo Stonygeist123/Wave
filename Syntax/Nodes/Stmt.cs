@@ -22,18 +22,25 @@ namespace Wave.Nodes
 
     public sealed class ExpressionStmt : StmtNode
     {
-        public ExpressionStmt(ExprNode expr) => Expr = expr;
+        public ExpressionStmt(ExprNode expr, Token? semicolon)
+        {
+            Expr = expr;
+            Semicolon = semicolon;
+        }
+
         public override SyntaxKind Kind => SyntaxKind.ExpressionStmt;
         public ExprNode Expr { get; }
+        public Token? Semicolon { get; }
     }
 
     public sealed class VarStmt : StmtNode
     {
-        public VarStmt(Token keyword, Token? mutKeyword, Token name, Token eqToken, ExprNode value, Token semicolon)
+        public VarStmt(Token keyword, Token? mutKeyword, Token name, TypeClause? typeClause, Token eqToken, ExprNode value, Token semicolon)
         {
             Keyword = keyword;
             MutKeyword = mutKeyword;
             Name = name;
+            TypeClause = typeClause;
             EqToken = eqToken;
             Value = value;
             Semicolon = semicolon;
@@ -43,6 +50,7 @@ namespace Wave.Nodes
         public Token Keyword { get; }
         public Token? MutKeyword { get; }
         public Token Name { get; }
+        public TypeClause? TypeClause { get; }
         public Token EqToken { get; }
         public ExprNode Value { get; }
         public Token Semicolon { get; }
@@ -65,19 +73,6 @@ namespace Wave.Nodes
         public ElseClause? ElseClause { get; }
     }
 
-    public sealed class ElseClause : StmtNode
-    {
-        public ElseClause(Token keyword, StmtNode stmt)
-        {
-            Keyword = keyword;
-            Stmt = stmt;
-        }
-
-        public override SyntaxKind Kind => SyntaxKind.ElseClause;
-        public Token Keyword { get; }
-        public StmtNode Stmt { get; }
-    }
-
     public sealed class WhileStmt : StmtNode
     {
         public WhileStmt(Token keyword, ExprNode condition, StmtNode stmt)
@@ -91,6 +86,23 @@ namespace Wave.Nodes
         public Token Keyword { get; }
         public ExprNode Condition { get; }
         public StmtNode Stmt { get; }
+    }
+
+    public sealed class DoWhileStmt : StmtNode
+    {
+        public DoWhileStmt(Token keyword, StmtNode stmt, Token whileKeyword, ExprNode condition)
+        {
+            Keyword = keyword;
+            Stmt = stmt;
+            WhileKeyword = whileKeyword;
+            Condition = condition;
+        }
+
+        public override SyntaxKind Kind => SyntaxKind.ElseClause;
+        public Token Keyword { get; }
+        public StmtNode Stmt { get; }
+        public Token WhileKeyword { get; }
+        public ExprNode Condition { get; }
     }
 
     public sealed class ForStmt : StmtNode

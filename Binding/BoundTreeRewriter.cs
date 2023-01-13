@@ -12,6 +12,7 @@ namespace Wave.Binding
             BoundNodeKind.VarStmt => RewriteVarStmt((BoundVarStmt)node),
             BoundNodeKind.IfStmt => RewriteIfStmt((BoundIfStmt)node),
             BoundNodeKind.WhileStmt => RewriteWhileStmt((BoundWhileStmt)node),
+            BoundNodeKind.DoWhileStmt => RewriteDoWhileStmt((BoundDoWhileStmt)node),
             BoundNodeKind.ForStmt => RewriteForStmt((BoundForStmt)node),
             BoundNodeKind.LabelStmt => RewriteLabelStmt((BoundLabelStmt)node),
             BoundNodeKind.GotoStmt => RewriteGotoStmt((BoundGotoStmt)node),
@@ -29,6 +30,7 @@ namespace Wave.Binding
                 BoundNodeKind.NameExpr => RewriteNameExpr((BoundName)node),
                 BoundNodeKind.AssignmentExpr => RewriteAssignmentExpr((BoundAssignment)node),
                 BoundNodeKind.CallExpr => RewriteCallExpr((BoundCall)node),
+                BoundNodeKind.ConversionExpr => RewriteConversionExpr((BoundConversion)node),
                 BoundNodeKind.ErrorExpr => RewriteErrorExpr((BoundError)node),
                 _ => throw new Exception($"Unexpected node to lower: \"{node.Kind}\"."),
             };
@@ -89,7 +91,6 @@ namespace Wave.Binding
             return new BoundIfStmt(condition, thenBranch, elseClause);
         }
 
-
         protected virtual BoundStmt RewriteWhileStmt(BoundWhileStmt node)
         {
             BoundExpr condition = RewriteExpr(node.Condition);
@@ -98,6 +99,16 @@ namespace Wave.Binding
                 return node;
 
             return new BoundWhileStmt(condition, stmt);
+        }
+
+        protected virtual BoundStmt RewriteDoWhileStmt(BoundDoWhileStmt node)
+        {
+            BoundStmt stmt = RewriteStmt(node.Stmt);
+            BoundExpr condition = RewriteExpr(node.Condition);
+            if (stmt == node.Stmt && condition == node.Condition)
+                return node;
+
+            return new BoundDoWhileStmt(stmt, condition);
         }
 
         protected virtual BoundStmt RewriteForStmt(BoundForStmt node)
@@ -177,6 +188,15 @@ namespace Wave.Binding
                 return node;
 
             return new BoundCall(node.Function, builder.MoveToImmutable());
+        }
+
+        private BoundExpr RewriteConversionExpr(BoundConversion node)
+        {
+            BoundExpr expr = RewriteExpr(node.Expr);
+            if (expr == node.Expr)
+                return node;
+
+            return new BoundConversion(node.Type, expr);
         }
 
         protected virtual BoundExpr RewriteErrorExpr(BoundError node) => node;

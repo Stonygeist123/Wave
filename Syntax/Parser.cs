@@ -25,9 +25,61 @@ namespace Wave
 
         public CompilationUnit ParseCompilationUnit()
         {
-            StmtNode stmt = ParseStmt();
+            ImmutableArray<MemberNode> members = ParseMembers();
             Token eofToken = Match(SyntaxKind.Eof);
-            return new(stmt, eofToken);
+            return new(members, eofToken);
+        }
+
+        private ImmutableArray<MemberNode> ParseMembers()
+        {
+            ImmutableArray<MemberNode>.Builder members = ImmutableArray.CreateBuilder<MemberNode>();
+            while (Current.Kind != SyntaxKind.Eof)
+            {
+                Token start = Current;
+                members.Add(ParseMember());
+
+                if (Current == start)
+                    Advance();
+            }
+
+            return members.ToImmutable();
+        }
+
+        private MemberNode ParseMember()
+        {
+            if (Current.Kind == SyntaxKind.Fn)
+                return ParseFnDeclaration();
+            return ParseGlobalStmt();
+        }
+
+        private GlobalStmt ParseGlobalStmt() => new(ParseStmt());
+        private FnDeclStmt ParseFnDeclaration()
+        {
+            Token kw = Match(SyntaxKind.Fn);
+            Token name = Match(SyntaxKind.Identifier);
+            ParameterList? parameters = Current.Kind == SyntaxKind.LParen ? ParseParameterList() : null;
+            TypeClause? typeClause = ParseOptTypeClause(SyntaxKind.Arrow);
+            StmtNode body = ParseStmt();
+
+            return new(kw, name, parameters, typeClause, body);
+        }
+
+        private ParameterNode ParseParameter() => new(Match(SyntaxKind.Identifier), ParseTypeClause(SyntaxKind.Colon));
+        private ParameterList ParseParameterList()
+        {
+            Token lParen = Match(SyntaxKind.LParen);
+            ImmutableArray<Node>.Builder parameters = ImmutableArray.CreateBuilder<Node>();
+            bool parseNextParam = true;
+            while (parseNextParam && Current.Kind != SyntaxKind.RParen && Current.Kind != SyntaxKind.Eof)
+            {
+                parameters.Add(ParseParameter());
+                if (Current.Kind == SyntaxKind.Comma)
+                    parameters.Add(Match(SyntaxKind.Comma));
+                else
+                    parseNextParam = false;
+            }
+
+            return new(lParen, new SeparatedList<ParameterNode>(parameters.ToImmutable()), Match(SyntaxKind.RParen));
         }
 
         private StmtNode ParseStmt() => Current.Kind switch
@@ -36,6 +88,7 @@ namespace Wave
             SyntaxKind.Var => ParseVarStmt(),
             SyntaxKind.If => ParseIfStmt(),
             SyntaxKind.While => ParseWhileStmt(),
+            SyntaxKind.Do => ParseDoWhileStmt(),
             SyntaxKind.For => ParseForStmt(),
             _ => ParseExprStmt()
         };
@@ -43,7 +96,7 @@ namespace Wave
         private BlockStmt ParseBlockStmt()
         {
             ImmutableArray<StmtNode>.Builder stmts = ImmutableArray.CreateBuilder<StmtNode>();
-            Token lBrace = Advance();
+            Token lBrace = Match(SyntaxKind.LBrace);
 
             while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
             {
@@ -59,17 +112,27 @@ namespace Wave
 
         private VarStmt ParseVarStmt()
         {
-            Token keyword = Advance();
+            Token keyword = Match(SyntaxKind.Var);
             Token? mutKw = Current.Kind == SyntaxKind.Mut ? Advance() : null;
             Token name = Match(SyntaxKind.Identifier);
+            TypeClause? typeClause = ParseOptTypeClause(SyntaxKind.Colon);
             Token eqToken = Match(SyntaxKind.Eq);
             ExprNode value = ParseExpr();
-            return new(keyword, mutKw, name, eqToken, value, Match(SyntaxKind.Semicolon));
+            return new(keyword, mutKw, name, typeClause, eqToken, value, Match(SyntaxKind.Semicolon));
+        }
+
+        private TypeClause ParseTypeClause(SyntaxKind sign) => new(Match(sign), Match(SyntaxKind.Identifier));
+        private TypeClause? ParseOptTypeClause(SyntaxKind sign)
+        {
+            if (Current.Kind != sign)
+                return null;
+
+            return ParseTypeClause(sign);
         }
 
         private IfStmt ParseIfStmt()
         {
-            Token kw = Advance();
+            Token kw = Match(SyntaxKind.If);
             ExprNode condition = ParseExpr();
             StmtNode thenBranch = ParseStmt();
             ElseClause? elseClause = Current.Kind == SyntaxKind.Else ? new(Advance(), ParseStmt()) : null;
@@ -81,15 +144,24 @@ namespace Wave
 
         private WhileStmt ParseWhileStmt()
         {
-            Token kw = Advance();
+            Token kw = Match(SyntaxKind.While);
             ExprNode condition = ParseExpr();
             StmtNode stmt = ParseStmt();
             return new(kw, condition, stmt);
         }
 
+        private DoWhileStmt ParseDoWhileStmt()
+        {
+            Token kw = Match(SyntaxKind.Do);
+            StmtNode stmt = ParseStmt();
+            Token whileKw = Match(SyntaxKind.While);
+            ExprNode condition = ParseExpr();
+            return new(kw, stmt, whileKw, condition);
+        }
+
         private ForStmt ParseForStmt()
         {
-            Token kw = Advance();
+            Token kw = Match(SyntaxKind.For);
             Token id = Match(SyntaxKind.Identifier);
             Token eqToken = Match(SyntaxKind.Eq);
             ExprNode lowerBound = ParseExpr();
@@ -102,10 +174,7 @@ namespace Wave
         private ExpressionStmt ParseExprStmt()
         {
             ExprNode expr = ParseExpr();
-            if (Current.Kind == SyntaxKind.Semicolon)
-                Advance();
-
-            return new(expr);
+            return new(expr, Current.Kind == SyntaxKind.Semicolon ? Advance() : null);
         }
 
         private ExprNode ParseExpr() => ParseAssignmentExpr();
@@ -113,8 +182,8 @@ namespace Wave
         {
             if (Current.Kind == SyntaxKind.Identifier && Peek(1).Kind == SyntaxKind.Eq)
             {
-                Token id = Advance();
-                Token eqToken = Advance();
+                Token id = Match(SyntaxKind.Identifier);
+                Token eqToken = Match(SyntaxKind.Eq);
                 ExprNode right = ParseAssignmentExpr();
                 return new AssignmentExpr(id, eqToken, right);
             }
@@ -170,11 +239,14 @@ namespace Wave
                 Token callee = Match(SyntaxKind.Identifier);
                 Token lParen = Match(SyntaxKind.LParen);
                 ImmutableArray<Node>.Builder args = ImmutableArray.CreateBuilder<Node>();
-                while (Current.Kind != SyntaxKind.RParen && Current.Kind != SyntaxKind.Eof)
+                bool parseNextArg = true;
+                while (parseNextArg && Current.Kind != SyntaxKind.RParen && Current.Kind != SyntaxKind.Eof)
                 {
                     args.Add(ParseExpr());
-                    if (Current.Kind != SyntaxKind.RParen)
+                    if (Current.Kind == SyntaxKind.Comma)
                         args.Add(Match(SyntaxKind.Comma));
+                    else
+                        parseNextArg = false;
                 }
 
                 return new CallExpr(callee, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));

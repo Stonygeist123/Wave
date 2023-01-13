@@ -90,6 +90,25 @@ Genral:
 <id> = <expr>
 ```
 
+#### Call expression (call)
+```
+Examples:
+print("Hello, World")
+var x = input();
+
+Genral:
+<id>([<expr>[,]...])
+```
+
+#### Type-cast (cast)
+```
+Examples:
+var mut x = float(input());
+
+Genral:
+<type>(<expr>)
+```
+
 ### Statements (stmt)
 #### Expression (expr_s)
 ```

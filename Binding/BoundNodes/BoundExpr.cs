@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Wave.Symbols;
 
 namespace Wave.Binding.BoundNodes
 {
@@ -118,6 +119,19 @@ namespace Wave.Binding.BoundNodes
         {
             Function = function;
             Args = args;
+        }
+    }
+
+    public sealed class BoundConversion : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.ConversionExpr;
+        public BoundExpr Expr { get; }
+
+        public BoundConversion(TypeSymbol type, BoundExpr expr)
+        {
+            Type = type;
+            Expr = expr;
         }
     }
 

@@ -1,16 +1,17 @@
-﻿using Wave.Syntax.Nodes;
+﻿using System.Collections.Immutable;
+using Wave.Syntax.Nodes;
 
 namespace Wave.Nodes
 {
     public sealed class CompilationUnit : Node
     {
-        public CompilationUnit(StmtNode stmt, Token eofToken)
+        public CompilationUnit(ImmutableArray<MemberNode> members, Token eofToken)
         {
-            Stmt = stmt;
+            Members = members;
             EofToken = eofToken;
         }
 
-        public StmtNode Stmt { get; }
+        public ImmutableArray<MemberNode> Members { get; }
         public Token EofToken { get; }
         public override SyntaxKind Kind => SyntaxKind.CompilationUnit;
     }

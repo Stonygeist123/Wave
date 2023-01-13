@@ -11,6 +11,7 @@ namespace Wave.Binding.BoundNodes
         NameExpr,
         AssignmentExpr,
         CallExpr,
+        ConversionExpr,
         ErrorExpr,
 
         // Stmt
@@ -19,6 +20,7 @@ namespace Wave.Binding.BoundNodes
         VarStmt,
         IfStmt,
         WhileStmt,
+        DoWhileStmt,
         ForStmt,
         LabelStmt,
         GotoStmt,

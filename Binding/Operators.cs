@@ -1,4 +1,5 @@
 ﻿using Wave.Binding.BoundNodes;
+using Wave.Symbols;
 using Wave.Syntax.Nodes;
 
 namespace Wave.Binding

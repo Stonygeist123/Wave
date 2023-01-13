@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Wave.Symbols;
 
 namespace Wave.Binding.BoundNodes
 {
@@ -57,6 +58,19 @@ namespace Wave.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.WhileStmt;
         public BoundExpr Condition { get; }
         public BoundStmt Stmt { get; }
+    }
+
+    internal sealed class BoundDoWhileStmt : BoundStmt
+    {
+        public BoundDoWhileStmt(BoundStmt stmt, BoundExpr condition)
+        {
+            Stmt = stmt;
+            Condition = condition;
+        }
+
+        public override BoundNodeKind Kind => BoundNodeKind.DoWhileStmt;
+        public BoundStmt Stmt { get; }
+        public BoundExpr Condition { get; }
     }
 
     internal sealed class BoundForStmt : BoundStmt

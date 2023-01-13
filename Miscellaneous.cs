@@ -33,7 +33,6 @@ namespace Wave
 
             int position = 0;
             int lineStart = 0;
-
             while (position < text.Length)
             {
                 int lineBreakWidth = GetLineBreakWidth(text, position);
@@ -42,7 +41,6 @@ namespace Wave
                 else
                 {
                     AddLine(result, source, position, lineStart, lineBreakWidth);
-
                     position += lineBreakWidth;
                     lineStart = position;
                 }
@@ -74,10 +72,7 @@ namespace Wave
         }
 
         private static void AddLine(ImmutableArray<TextLine>.Builder result, SourceText source, int position, int lineStart, int lineBreakWidth)
-        {
-            TextLine line = new(source, lineStart, position - lineStart, position - lineStart + lineBreakWidth);
-            result.Add(line);
-        }
+            => result.Add(new TextLine(source, lineStart, position - lineStart, position - lineStart + lineBreakWidth));
 
         private static int GetLineBreakWidth(string text, int i)
         {

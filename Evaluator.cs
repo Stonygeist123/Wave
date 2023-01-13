@@ -1,32 +1,39 @@
-﻿using System.Globalization;
+﻿using System.Collections.Immutable;
+using System.Globalization;
 using Wave.Binding;
 using Wave.Binding.BoundNodes;
+using Wave.Symbols;
 
 namespace Wave
 {
     internal class Evaluator
     {
+        private readonly ImmutableDictionary<FunctionSymbol, BoundBlockStmt> _fnBodies;
         private readonly BoundBlockStmt _root;
-        private readonly Dictionary<VariableSymbol, object?> _variables;
+        private readonly Dictionary<VariableSymbol, object?> _globals;
+        private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new();
+        private readonly Random rnd = new();
         private object? _lastValue = null;
-        public Evaluator(BoundBlockStmt root, Dictionary<VariableSymbol, object?> variables)
+        public Evaluator(ImmutableDictionary<FunctionSymbol, BoundBlockStmt> fnBodies, BoundBlockStmt root, Dictionary<VariableSymbol, object?> variables)
         {
+            _fnBodies = fnBodies;
             _root = root;
-            _variables = variables;
+            _globals = variables;
         }
 
-        public object? Evaluate()
+        public object? Evaluate() => EvaluateStmt(_root);
+
+        private object? EvaluateStmt(BoundBlockStmt stmt)
         {
             Dictionary<LabelSymbol, int> labelToIndex = new();
-            for (int i = 0; i < _root.Stmts.Length; ++i)
-                if (_root.Stmts[i] is BoundLabelStmt l)
+            for (int i = 0; i < stmt.Stmts.Length; ++i)
+                if (stmt.Stmts[i] is BoundLabelStmt l)
                     labelToIndex.Add(l.Label, i + 1);
 
             int index = 0;
-            while (index < _root.Stmts.Length)
+            while (index < stmt.Stmts.Length)
             {
-                BoundStmt s = _root.Stmts[index];
-
+                BoundStmt s = stmt.Stmts[index];
                 switch (s)
                 {
                     case BoundExpressionStmt e:
@@ -37,9 +44,9 @@ namespace Wave
                         }
                     case BoundVarStmt v:
                         {
-                            object value = EvaluateExpr(v.Value)!;
-                            _variables[v.Variable] = value;
-                            _lastValue = value;
+                            _lastValue = (v.Variable.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[v.Variable] = EvaluateExpr(v.Value);
                             ++index;
                             break;
                         }
@@ -216,17 +223,55 @@ namespace Wave
                         break;
                     }
                 case BoundName n:
-                    return _variables[n.Variable];
+                    return n.Variable.Kind == SymbolKind.GlobalVariable
+                            ? _globals[n.Variable]
+                            : _locals.Peek()[n.Variable];
                 case BoundAssignment a:
-                    return _variables[a.Variable] = EvaluateExpr(a.Value);
+                    return (a.Variable.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[a.Variable] = EvaluateExpr(a.Value);
                 case BoundCall c:
-                    if (c.Function == BuiltInFunctions.Input) return Console.ReadLine()!;
-                    else if (c.Function == BuiltInFunctions.Print)
                     {
-                        Console.WriteLine(EvaluateExpr(c.Args[0]));
-                        return null;
+                        if (c.Function == BuiltInFunctions.Input) return Console.ReadLine()!;
+                        else if (c.Function == BuiltInFunctions.Print)
+                        {
+                            Console.WriteLine(EvaluateExpr(c.Args[0]));
+                            return null;
+                        }
+                        else if (c.Function == BuiltInFunctions.Random)
+                            return rnd.Next((int?)EvaluateExpr(c.Args[0]) ?? 1);
+                        else
+                        {
+                            Dictionary<VariableSymbol, object?> locals = new();
+                            for (int i = 0; i < c.Args.Length; ++i)
+                            {
+                                ParameterSymbol parameter = c.Function.Parameters[i];
+                                locals.Add(parameter, EvaluateExpr(c.Args[i]));
+                            }
+
+                            _locals.Push(locals);
+                            object? res = EvaluateStmt(_fnBodies[c.Function]);
+                            _locals.Pop();
+                            return res;
+                        }
+
+                        throw new Exception($"Unexpected function \"{c.Function.Name}\"");
                     }
-                    else throw new Exception($"Unexpected function \"{c.Function.Name}\"");
+                case BoundConversion c:
+                    {
+                        object? v = EvaluateExpr(c.Expr);
+                        if (c.Type == TypeSymbol.Bool)
+                            return Convert.ToBoolean(v);
+                        if (c.Type == TypeSymbol.Int)
+                            return Convert.ToInt32(v);
+                        if (c.Type == TypeSymbol.Float)
+                        {
+                            return Convert.ToDouble(v, CultureInfo.InvariantCulture);
+                        }
+                        if (c.Type == TypeSymbol.String)
+                            return Convert.ToString(v);
+                        throw new Exception($"Unexpected type \"{c.Type}\".");
+                    }
             }
 
             throw new Exception($"Unexpected expression.");

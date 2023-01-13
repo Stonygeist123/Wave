@@ -14,7 +14,6 @@ namespace Wave
         private object? _value;
 
         public DiagnosticBag Diagnostics => _diagnostics;
-
         public Lexer(SourceText source) => _source = source;
         public Token GetToken()
         {
@@ -157,6 +156,10 @@ namespace Wave
                     ++_position;
                     _kind = SyntaxKind.Semicolon;
                     break;
+                case ':':
+                    ++_position;
+                    _kind = SyntaxKind.Colon;
+                    break;
                 case '"':
                     LexString();
                     break;
@@ -209,10 +212,10 @@ namespace Wave
                         done = true;
                         break;
                     default:
-                        if (!char.IsWhiteSpace(Current))
-                            done = true;
-                        else
+                        if (char.IsWhiteSpace(Current))
                             ++_position;
+                        else
+                            done = true;
                         break;
                 }
             }

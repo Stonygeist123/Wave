@@ -1,10 +1,13 @@
 ﻿using System.Collections.Immutable;
+using Wave.Nodes;
 
-namespace Wave.Binding
+namespace Wave.Symbols
 {
     public enum SymbolKind
     {
         Variable,
+        GlobalVariable,
+        LocalVariable,
         Type,
         Parameter,
         Function,
@@ -17,20 +20,6 @@ namespace Wave.Binding
         public abstract SymbolKind Kind { get; }
         public string Name { get; }
         public override string ToString() => Name;
-    }
-
-    public class VariableSymbol : Symbol
-    {
-        public VariableSymbol(string name, TypeSymbol type, bool isMut)
-            : base(name)
-        {
-            Type = type;
-            IsMut = isMut;
-        }
-
-        public override SymbolKind Kind => SymbolKind.Variable;
-        public TypeSymbol Type { get; }
-        public bool IsMut { get; }
     }
 
     public sealed class TypeSymbol : Symbol
@@ -48,27 +37,20 @@ namespace Wave.Binding
         public override SymbolKind Kind => SymbolKind.Type;
     }
 
-    public sealed class ParameterSymbol : VariableSymbol
-    {
-        public ParameterSymbol(string name, TypeSymbol type)
-            : base(name, type, false) { }
-
-        public override SymbolKind Kind => SymbolKind.Parameter;
-    }
-
     public sealed class FunctionSymbol : Symbol
     {
-        public FunctionSymbol(string name, ImmutableArray<ParameterSymbol> parameters, TypeSymbol type)
+        public FunctionSymbol(string name, ImmutableArray<ParameterSymbol> parameters, TypeSymbol type, FnDeclStmt? decl = null)
             : base(name)
         {
             Parameters = parameters;
             Type = type;
+            Decl = decl;
         }
 
         public override SymbolKind Kind => SymbolKind.Function;
-
         public ImmutableArray<ParameterSymbol> Parameters { get; }
         public TypeSymbol Type { get; }
+        public FnDeclStmt? Decl { get; }
     }
 
     public sealed class LabelSymbol : Symbol

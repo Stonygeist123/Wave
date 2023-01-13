@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
 using Wave.Binding;
 using Wave.Binding.BoundNodes;
+using Wave.Lowering;
+using Wave.Symbols;
 
 namespace Wave
 {
@@ -22,8 +24,7 @@ namespace Wave
         public SyntaxTree SyntaxTree { get; }
         public Compilation? Previous { get; }
         public Compilation(SyntaxTree syntaxTree)
-            : this(null, syntaxTree)
-        { }
+            : this(null, syntaxTree) { }
 
         public Compilation(Compilation? previous, SyntaxTree syntaxTree)
         {
@@ -54,7 +55,11 @@ namespace Wave
             if (diagnostics.Any())
                 return new(diagnostics, null);
 
-            Evaluator evaluator = new(GetStmt(), variables);
+            BoundProgram program = Binder.BindProgram(GlobalScope);
+            if (program.Diagnostics.Any())
+                return new EvaluationResult(program.Diagnostics, null);
+
+            Evaluator evaluator = new(program.FnBodies, GetStmt(), variables);
             object? value = evaluator.Evaluate();
             return new(ImmutableArray<Diagnostic>.Empty, value);
         }
@@ -65,6 +70,6 @@ namespace Wave
             stmt.WriteTo(writer);
         }
 
-        private BoundBlockStmt GetStmt() => Lowerer.Lowerer.Lower(GlobalScope.Stmt);
+        private BoundBlockStmt GetStmt() => Lowerer.Lower(GlobalScope.Stmt);
     }
 }

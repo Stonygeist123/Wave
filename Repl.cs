@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using Wave.Binding;
+using Wave.Symbols;
 using Wave.Syntax.Nodes;
 
 namespace Wave
@@ -187,6 +187,7 @@ namespace Wave
                 }
 
             if (key.KeyChar >= ' ')
+
                 HandleTyping(document, view, key.KeyChar.ToString());
         }
 
@@ -434,21 +435,12 @@ namespace Wave
 
             if (!result.Diagnostics.Any())
             {
-                if (result.Value is not null)
-                {/*
-                    Console.ForegroundColor = ConsoleColor.DarkBlue;
-                    Console.WriteLine(result.Value);
-                    Console.WriteLine();
-                    Console.ResetColor();*/
-                }
-
                 Console.WriteLine();
-
                 _previous = compilation;
             }
             else
             {
-                foreach (Diagnostic d in result.Diagnostics)
+                foreach (Diagnostic d in result.Diagnostics.OrderBy(d => d.Span, Comparer<TextSpan>.Create((TextSpan x, TextSpan y) => x.Start - y.Start == 0 ? x.Length - y.Length : x.Start - y.Start)))
                 {
                     SourceText source = syntaxTree.Source;
                     int lineIndex = source.GetLineIndex(d.Span.Start);
@@ -456,8 +448,9 @@ namespace Wave
                     TextLine line = source.Lines[lineIndex];
                     int column = d.Span.Start - line.Start + 1;
 
+                    string where = $"[{$"{lineNumber}:{column}"}]: ";
                     Console.ForegroundColor = ConsoleColor.DarkRed;
-                    Console.Write($"[{$"{lineNumber}:{column}"}]: ");
+                    Console.Write(where);
                     Console.ResetColor();
 
                     TextSpan prefixSpan = TextSpan.From(line.Start, d.Span.Start);
@@ -477,7 +470,7 @@ namespace Wave
                     Console.WriteLine(suffix);
 
                     Console.ForegroundColor = ConsoleColor.DarkRed;
-                    Console.Write(new string(' ', prefix.Length + 7));
+                    Console.Write(new string(' ', prefix.Length + where.Length));
                     Console.Write(new string('^', error.Length == 0 ? 1 : error.Length));
                     Console.WriteLine($" {d}\n");
                     Console.ResetColor();
@@ -494,7 +487,7 @@ namespace Wave
                 return true;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            return !syntaxTree.Root.Stmt.GetLastToken().IsMissing;
+            return !syntaxTree.Root.Members.Last().GetLastToken().IsMissing;
         }
     }
 }

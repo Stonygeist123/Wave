@@ -19,10 +19,10 @@ namespace Wave
             _fnBodies = fnBodies;
             _root = root;
             _globals = variables;
+            _locals.Push(new Dictionary<VariableSymbol, object?>());
         }
 
         public object? Evaluate() => EvaluateStmt(_root);
-
         private object? EvaluateStmt(BoundBlockStmt stmt)
         {
             Dictionary<LabelSymbol, int> labelToIndex = new();
@@ -44,9 +44,12 @@ namespace Wave
                         }
                     case BoundVarStmt v:
                         {
-                            _lastValue = (v.Variable.Kind == SymbolKind.GlobalVariable
+                            object? value = EvaluateExpr(v.Value);
+                            (v.Variable.Kind == SymbolKind.GlobalVariable
                             ? _globals
-                            : _locals.Peek())[v.Variable] = EvaluateExpr(v.Value);
+                            : _locals.Peek()).Add(v.Variable, value);
+
+                            _lastValue = value;
                             ++index;
                             break;
                         }

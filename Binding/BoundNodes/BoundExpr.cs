@@ -114,7 +114,6 @@ namespace Wave.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.CallExpr;
         public FunctionSymbol Function { get; }
         public ImmutableArray<BoundExpr> Args { get; }
-
         public BoundCall(FunctionSymbol function, ImmutableArray<BoundExpr> args)
         {
             Function = function;

@@ -1,6 +1,6 @@
 ﻿using Wave.Syntax.Nodes;
 
-namespace Wave
+namespace Wave.Syntax
 {
     public static class SyntaxFacts
     {
@@ -39,7 +39,7 @@ namespace Wave
             _ => SyntaxKind.Identifier,
         };
 
-        public static string? GetLexeme(SyntaxKind kind) => kind switch
+        public static string? GetLexeme(this SyntaxKind kind) => kind switch
         {
             SyntaxKind.Plus => "+",
             SyntaxKind.Minus => "-",

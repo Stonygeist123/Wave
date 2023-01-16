@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Wave.Nodes;
+using Wave.Syntax;
 using Wave.Syntax.Nodes;
 
 namespace Wave

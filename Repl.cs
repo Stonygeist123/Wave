@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using Wave.Symbols;
+using Wave.Syntax;
 using Wave.Syntax.Nodes;
 
 namespace Wave
@@ -193,7 +194,9 @@ namespace Wave
 
         private static void HandleEscape(ObservableCollection<string> document, SubmissionView view)
         {
-            document[view.CurrentLine] = string.Empty;
+            document.Clear();
+            document.Add(string.Empty);
+            view.CurrentLine = 0;
             view.CurrentColumn = 0;
         }
 
@@ -435,6 +438,12 @@ namespace Wave
 
             if (!result.Diagnostics.Any())
             {
+                if (result.Value is not null)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkBlue;
+                    Console.WriteLine(result.Value);
+                    Console.ResetColor();
+                }
                 Console.WriteLine();
                 _previous = compilation;
             }

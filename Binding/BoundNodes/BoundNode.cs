@@ -65,85 +65,11 @@ namespace Wave.Binding.BoundNodes
             }
         }
 
-        public void WriteTo(TextWriter writer) => Print(writer, this);
-
-        private static void Print(TextWriter writer, BoundNode? node, string indent = "", bool isLast = true)
-        {
-            bool isConsole = writer == Console.Out;
-
-            if (node is BoundNode n)
-            {
-                string marker = isLast ? "└── " : "├── ";
-                writer.Write(indent);
-                writer.Write(marker);
-
-                if (isConsole)
-                    Console.ForegroundColor = GetColor(node);
-
-                string text = GetText(node);
-                writer.Write(text);
-
-                bool isFirstProp = true;
-                foreach ((string Name, object Value) in n.GetProps())
-                {
-                    if (isFirstProp)
-                        isFirstProp = false;
-                    else
-                    {
-                        if (isConsole)
-                            Console.ForegroundColor = ConsoleColor.DarkGray;
-
-                        writer.Write(",");
-                    }
-
-
-                    writer.Write(" ");
-
-                    if (isConsole)
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-
-                    writer.Write(Name);
-                    if (isConsole)
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
-
-                    writer.Write(" = ");
-                    if (isConsole)
-                        Console.ForegroundColor = ConsoleColor.DarkYellow;
-
-                    writer.Write(Value);
-                }
-
-                if (isConsole)
-                    Console.ResetColor();
-
-                writer.WriteLine();
-                indent += isLast ? "    " : "│   ";
-                BoundNode? lastChild = node?.GetChildren().LastOrDefault();
-
-                foreach (BoundNode? child in n.GetChildren())
-                    Print(writer, child, indent, child == lastChild);
-            }
-        }
-
-        private static string GetText(BoundNode node) => node switch
-        {
-            BoundBinary b => b.Op.Kind.ToString() + "Expression",
-            BoundUnary u => u.Op.Kind.ToString() + "Expression",
-            _ => node.Kind.ToString()
-        };
-
         public override string ToString()
         {
             using StringWriter writer = new();
-            WriteTo(writer);
+            this.WriteTo(writer);
             return writer.ToString();
         }
-
-        private static ConsoleColor GetColor(BoundNode node) => node switch
-        {
-            BoundExpr => ConsoleColor.Blue,
-            BoundStmt => ConsoleColor.Cyan,
-            _ => ConsoleColor.Yellow
-        };
     }
 }

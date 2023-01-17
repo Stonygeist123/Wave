@@ -1,8 +1,8 @@
 ﻿using System.CodeDom.Compiler;
 using Wave.IO;
+using Wave.Nodes;
 using Wave.Symbols;
 using Wave.Syntax;
-using Wave.Syntax.Nodes;
 
 namespace Wave.Binding.BoundNodes
 {

@@ -2,7 +2,7 @@
 using Wave.Nodes;
 using Wave.Syntax.Nodes;
 
-namespace Wave
+namespace Wave.Syntax
 {
     public class SyntaxTree
     {

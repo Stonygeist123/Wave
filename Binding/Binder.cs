@@ -13,6 +13,8 @@ namespace Wave.Binding
         private readonly DiagnosticBag _diagnostics = new();
         private BoundScope _scope;
         public DiagnosticBag Diagnostics => _diagnostics;
+        private readonly Stack<(LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _loopStack = new();
+        private int _labelCounter = 0;
         public Binder(BoundScope? parent, FunctionSymbol? fn)
         {
             _scope = new(parent);
@@ -146,6 +148,8 @@ namespace Wave.Binding
                 WhileStmt w => BindWhileStmt(w),
                 DoWhileStmt d => BindDoWhileStmt(d),
                 ForStmt f => BindForStmt(f),
+                BreakStmt b => BindBreakStmt(b),
+                ContinueStmt c => BindContinueStmt(c),
                 _ => throw new Exception("Unexpected syntax."),
             };
         }
@@ -197,15 +201,15 @@ namespace Wave.Binding
         private BoundWhileStmt BindWhileStmt(WhileStmt w)
         {
             BoundExpr condition = BindExpr(w.Condition, TypeSymbol.Bool);
-            BoundStmt stmt = BindStmt(w.Stmt);
-            return new(condition, stmt);
+            BoundStmt stmt = BoundLoopBody(w.Stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            return new(condition, stmt, breakLabel, continueLabel);
         }
 
         private BoundDoWhileStmt BindDoWhileStmt(DoWhileStmt d)
         {
-            BoundStmt stmt = BindStmt(d.Stmt);
+            BoundStmt stmt = BoundLoopBody(d.Stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             BoundExpr condition = BindExpr(d.Condition, TypeSymbol.Bool);
-            return new(stmt, condition);
+            return new(stmt, condition, breakLabel, continueLabel);
         }
 
         private BoundForStmt BindForStmt(ForStmt f)
@@ -215,9 +219,42 @@ namespace Wave.Binding
 
             _scope = new(_scope);
             VariableSymbol variable = DeclareVar(f.Id, TypeSymbol.Int);
-            BoundStmt stmt = BindStmt(f.Stmt);
+            BoundStmt stmt = BoundLoopBody(f.Stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             _scope = _scope.Parent!;
-            return new(variable, lowerBound, upperBound, stmt);
+            return new(variable, lowerBound, upperBound, stmt, breakLabel, continueLabel);
+        }
+
+        private BoundStmt BoundLoopBody(StmtNode stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel)
+        {
+            breakLabel = new($"Break_{++_labelCounter}");
+            continueLabel = new($"Continue_{_labelCounter}");
+
+            _loopStack.Push((breakLabel, continueLabel));
+            BoundStmt boundStmt = BindStmt(stmt);
+            _loopStack.Pop();
+            return boundStmt;
+        }
+
+        private BoundStmt BindBreakStmt(BreakStmt b)
+        {
+            if (!_loopStack.Any())
+            {
+                _diagnostics.Report(b.Span, "Can only break inside of loops.");
+                return new BoundErrorStmt();
+            }
+
+            return new BoundGotoStmt(_loopStack.Peek().BreakLabel);
+        }
+
+        private BoundStmt BindContinueStmt(ContinueStmt c)
+        {
+            if (!_loopStack.Any())
+            {
+                _diagnostics.Report(c.Span, "Can only continue inside of loops.");
+                return new BoundErrorStmt();
+            }
+
+            return new BoundGotoStmt(_loopStack.Peek().ContinueLabel);
         }
 
         private BoundExpr BindExpr(ExprNode expr, TypeSymbol type) => BindConversion(expr, type);

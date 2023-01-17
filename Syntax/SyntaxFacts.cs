@@ -1,4 +1,4 @@
-﻿using Wave.Syntax.Nodes;
+﻿using Wave.Nodes;
 
 namespace Wave.Syntax
 {
@@ -36,6 +36,8 @@ namespace Wave.Syntax
             "for" => SyntaxKind.For,
             "fn" => SyntaxKind.Fn,
             "do" => SyntaxKind.Do,
+            "break" => SyntaxKind.Break,
+            "continue" => SyntaxKind.Continue,
             _ => SyntaxKind.Identifier,
         };
 
@@ -76,6 +78,8 @@ namespace Wave.Syntax
             SyntaxKind.For => "for",
             SyntaxKind.Fn => "fn",
             SyntaxKind.Do => "do",
+            SyntaxKind.Break => "break",
+            SyntaxKind.Continue => "continue",
             _ => null,
         };
     }

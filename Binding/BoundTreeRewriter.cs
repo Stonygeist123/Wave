@@ -98,7 +98,7 @@ namespace Wave.Binding
             if (condition == node.Condition && stmt == node.Stmt)
                 return node;
 
-            return new BoundWhileStmt(condition, stmt);
+            return new BoundWhileStmt(condition, stmt, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteDoWhileStmt(BoundDoWhileStmt node)
@@ -108,7 +108,7 @@ namespace Wave.Binding
             if (stmt == node.Stmt && condition == node.Condition)
                 return node;
 
-            return new BoundDoWhileStmt(stmt, condition);
+            return new BoundDoWhileStmt(stmt, condition, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteForStmt(BoundForStmt node)
@@ -119,7 +119,7 @@ namespace Wave.Binding
             if (lowerBound == node.LowerBound && upperBound == node.UpperBound && stmt == node.Stmt)
                 return node;
 
-            return new BoundForStmt(node.Variable, lowerBound, upperBound, stmt);
+            return new BoundForStmt(node.Variable, lowerBound, upperBound, stmt, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteLabelStmt(BoundLabelStmt node) => node;

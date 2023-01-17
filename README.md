@@ -182,3 +182,21 @@ for i = 1 -> x
 Genral:
 for <id> = <expr> -> <expr> <stmt>
 ```
+
+#### Break (break)
+```
+Examples:
+break;
+
+Genral:
+break;
+```
+
+#### Continue (continue)
+```
+Examples:
+continue;
+
+Genral:
+continue;
+```

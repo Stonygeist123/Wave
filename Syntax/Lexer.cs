@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Wave.Nodes;
 using Wave.Syntax;
 using Wave.Syntax.Nodes;
 

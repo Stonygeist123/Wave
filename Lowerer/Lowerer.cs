@@ -1,18 +1,15 @@
 ﻿using System.Collections.Immutable;
 using Wave.Binding;
 using Wave.Binding.BoundNodes;
+using Wave.Nodes;
 using Wave.Symbols;
-using Wave.Syntax.Nodes;
 
 namespace Wave.Lowering
 {
     internal sealed class Lowerer : BoundTreeRewriter
     {
         private int _labelCount = 0;
-        private Lowerer() { }
-
         private LabelSymbol GenerateLabel() => new($"Label_{++_labelCount}");
-
         public static BoundBlockStmt Lower(BoundStmt stmt)
         {
             Lowerer lowerer = new();
@@ -63,24 +60,21 @@ namespace Wave.Lowering
 
         protected override BoundStmt RewriteWhileStmt(BoundWhileStmt node)
         {
-            LabelSymbol continueLabel = GenerateLabel();
             LabelSymbol checkLabel = GenerateLabel();
-            LabelSymbol endLabel = GenerateLabel();
-
             BoundGotoStmt gotoCheck = new(checkLabel);
-            BoundLabelStmt continueLabelStmt = new(continueLabel);
+            BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
             BoundLabelStmt checkLabelStmt = new(checkLabel);
-            BoundCondGotoStmt gotoTrue = new(continueLabel, node.Condition);
-            BoundLabelStmt endLabelStmt = new(endLabel);
-            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(gotoCheck, continueLabelStmt, node.Stmt, checkLabelStmt, gotoTrue, endLabelStmt)));
+            BoundCondGotoStmt gotoTrue = new(node.ContinueLabel, node.Condition);
+            BoundLabelStmt breakLabelStmt = new(node.BreakLabel);
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(gotoCheck, continueLabelStmt, node.Stmt, checkLabelStmt, gotoTrue, breakLabelStmt)));
         }
 
         protected override BoundStmt RewriteDoWhileStmt(BoundDoWhileStmt node)
         {
-            LabelSymbol continueLabel = GenerateLabel();
-            BoundLabelStmt continueLabelStmt = new(continueLabel);
-            BoundCondGotoStmt gotoTrue = new(continueLabel, node.Condition);
-            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(continueLabelStmt, node.Stmt, gotoTrue)));
+            BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
+            BoundCondGotoStmt gotoTrue = new(node.ContinueLabel, node.Condition);
+            BoundLabelStmt breakLabelStmt = new(node.BreakLabel);
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(continueLabelStmt, node.Stmt, gotoTrue, breakLabelStmt)));
         }
 
         protected override BoundStmt RewriteForStmt(BoundForStmt node)
@@ -90,6 +84,7 @@ namespace Wave.Lowering
             LocalVariableSymbol upperBoundSymbol = new("upperBound", TypeSymbol.Int, false);
             BoundVarStmt upperBoundDecl = new(upperBoundSymbol, node.UpperBound);
             BoundBinary condition = new(varExpr, BoundBinOperator.Bind(SyntaxKind.LessEq, TypeSymbol.Int, TypeSymbol.Int)!, new BoundName(upperBoundSymbol));
+            BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
             BoundExpressionStmt increment = new(new BoundAssignment(
                     node.Variable,
                     new BoundBinary(
@@ -99,7 +94,7 @@ namespace Wave.Lowering
                     )
                 );
 
-            BoundWhileStmt whileStmt = new(condition, new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(node.Stmt, increment)));
+            BoundWhileStmt whileStmt = new(condition, new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(node.Stmt, continueLabelStmt, increment)), node.BreakLabel, new("continue"));
             return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(
                 varDecl,
                 upperBoundDecl,

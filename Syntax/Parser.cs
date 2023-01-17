@@ -91,6 +91,8 @@ namespace Wave
             SyntaxKind.While => ParseWhileStmt(),
             SyntaxKind.Do => ParseDoWhileStmt(),
             SyntaxKind.For => ParseForStmt(),
+            SyntaxKind.Break => ParseBreakStmt(),
+            SyntaxKind.Continue => ParseContinueStmt(),
             _ => ParseExprStmt()
         };
 
@@ -170,6 +172,20 @@ namespace Wave
             ExprNode upperBound = ParseExpr();
             StmtNode stmt = ParseStmt();
             return new(kw, id, eqToken, lowerBound, arrow, upperBound, stmt);
+        }
+
+        private BreakStmt ParseBreakStmt()
+        {
+            Token kw = Match(SyntaxKind.Break);
+            Token semi = Match(SyntaxKind.Semicolon);
+            return new(kw, semi);
+        }
+
+        private ContinueStmt ParseContinueStmt()
+        {
+            Token kw = Match(SyntaxKind.Continue);
+            Token semi = Match(SyntaxKind.Semicolon);
+            return new(kw, semi);
         }
 
         private ExpressionStmt ParseExprStmt()

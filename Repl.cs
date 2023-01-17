@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using Wave.Nodes;
 using Wave.Symbols;
 using Wave.Syntax;
 using Wave.Syntax.Nodes;

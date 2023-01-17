@@ -1,6 +1,5 @@
-﻿using System.CodeDom.Compiler;
+﻿using Wave.Nodes;
 using Wave.Syntax;
-using Wave.Syntax.Nodes;
 
 namespace Wave.IO
 {
@@ -18,7 +17,7 @@ namespace Wave.IO
                 Console.ResetColor();
         }
 
-        public static void WriteSpace(this IndentedTextWriter writer) => writer.Write(" ");
+        public static void WriteSpace(this TextWriter writer) => writer.Write(" ");
         public static void WriteLiteral(this TextWriter writer, string text)
         {
             writer.SetForeground(ConsoleColor.Cyan);

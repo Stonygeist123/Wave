@@ -85,4 +85,86 @@ namespace Wave.Nodes
             return writer.ToString();
         }
     }
+
+    public enum SyntaxKind
+    {
+        // Token
+        Space,
+        Plus,
+        Minus,
+        Star,
+        Slash,
+        Power,
+        Mod,
+        And,
+        Or,
+        Xor,
+        Inv,
+        LParen,
+        RParen,
+        LBrace,
+        RBrace,
+        Bang,
+        LogicAnd,
+        LogicOr,
+        EqEq,
+        NotEq,
+        Greater,
+        Less,
+        GreaterEq,
+        LessEq,
+        Eq,
+        Comma,
+        Semicolon,
+        Colon,
+        Arrow,
+        Bad,
+        Eof,
+
+        // Literals
+        Int,
+        Float,
+        Identifier,
+        String,
+
+        // Keywords
+        True,
+        False,
+        Var,
+        Mut,
+        If,
+        Else,
+        While,
+        Do,
+        For,
+        Fn,
+        Continue,
+        Break,
+
+        // Nodes
+        CompilationUnit,
+        FnDecl,
+        GlobalStmt,
+        ElseClause,
+        TypeClause,
+        ParameterSyntax,
+
+        // Expr
+        LiteralExpr,
+        BinaryExpr,
+        UnaryExpr,
+        GroupingExpr,
+        NameExpr,
+        AssignmentExpr,
+        CallExpr,
+
+        // Stmt
+        ExpressionStmt,
+        BlockStmt,
+        VarStmt,
+        IfStmt,
+        ForStmt,
+        BreakStmt,
+        ContinueStmt
+    }
 }

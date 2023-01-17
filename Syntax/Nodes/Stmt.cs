@@ -127,4 +127,30 @@ namespace Wave.Nodes
         public ExprNode UpperBound { get; }
         public StmtNode Stmt { get; }
     }
+
+    public sealed class BreakStmt : StmtNode
+    {
+        public BreakStmt(Token keyword, Token semicolon)
+        {
+            Keyword = keyword;
+            Semicolon = semicolon;
+        }
+
+        public override SyntaxKind Kind => SyntaxKind.BreakStmt;
+        public Token Keyword { get; }
+        public Token Semicolon { get; }
+    }
+
+    public sealed class ContinueStmt : StmtNode
+    {
+        public ContinueStmt(Token keyword, Token semicolon)
+        {
+            Keyword = keyword;
+            Semicolon = semicolon;
+        }
+
+        public override SyntaxKind Kind => SyntaxKind.ContinueStmt;
+        public Token Keyword { get; }
+        public Token Semicolon { get; }
+    }
 }

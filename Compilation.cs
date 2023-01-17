@@ -3,6 +3,7 @@ using Wave.Binding;
 using Wave.Binding.BoundNodes;
 using Wave.Lowering;
 using Wave.Symbols;
+using Wave.Syntax;
 
 namespace Wave
 {
@@ -66,8 +67,18 @@ namespace Wave
 
         public void EmitTree(TextWriter writer)
         {
-            BoundStmt stmt = GetStmt();
-            stmt.WriteTo(writer);
+            BoundProgram program = Binder.BindProgram(GlobalScope);
+            if (program.GlobalScope.Stmt.Stmts.Length > 0)
+                program.GlobalScope.Stmt.WriteTo(writer);
+            else
+                foreach (KeyValuePair<FunctionSymbol, BoundBlockStmt> fn in program.FnBodies)
+                {
+                    if (!GlobalScope.Functions.Contains(fn.Key))
+                        continue;
+
+                    fn.Key.WriteTo(writer);
+                    fn.Value.WriteTo(writer);
+                }
         }
 
         private BoundBlockStmt GetStmt() => Lowerer.Lower(GlobalScope.Stmt);

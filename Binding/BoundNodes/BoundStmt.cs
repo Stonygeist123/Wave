@@ -47,9 +47,23 @@ namespace Wave.Binding.BoundNodes
         public BoundStmt? ElseClause { get; }
     }
 
-    internal sealed class BoundWhileStmt : BoundStmt
+    internal abstract class BoundLoopStmt : BoundStmt
     {
-        public BoundWhileStmt(BoundExpr condition, BoundStmt stmt)
+        public BoundLoopStmt(LabelSymbol breakLabel, LabelSymbol continueLabel)
+        {
+            BreakLabel = breakLabel;
+            ContinueLabel = continueLabel;
+        }
+
+        public override BoundNodeKind Kind => BoundNodeKind.LoopStmt;
+        public LabelSymbol BreakLabel { get; }
+        public LabelSymbol ContinueLabel { get; }
+    }
+
+    internal sealed class BoundWhileStmt : BoundLoopStmt
+    {
+        public BoundWhileStmt(BoundExpr condition, BoundStmt stmt, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(breakLabel, continueLabel)
         {
             Condition = condition;
             Stmt = stmt;
@@ -60,9 +74,10 @@ namespace Wave.Binding.BoundNodes
         public BoundStmt Stmt { get; }
     }
 
-    internal sealed class BoundDoWhileStmt : BoundStmt
+    internal sealed class BoundDoWhileStmt : BoundLoopStmt
     {
-        public BoundDoWhileStmt(BoundStmt stmt, BoundExpr condition)
+        public BoundDoWhileStmt(BoundStmt stmt, BoundExpr condition, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(breakLabel, continueLabel)
         {
             Stmt = stmt;
             Condition = condition;
@@ -73,9 +88,10 @@ namespace Wave.Binding.BoundNodes
         public BoundExpr Condition { get; }
     }
 
-    internal sealed class BoundForStmt : BoundStmt
+    internal sealed class BoundForStmt : BoundLoopStmt
     {
-        public BoundForStmt(VariableSymbol variable, BoundExpr lowerBound, BoundExpr upperBound, BoundStmt stmt)
+        public BoundForStmt(VariableSymbol variable, BoundExpr lowerBound, BoundExpr upperBound, BoundStmt stmt, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(breakLabel, continueLabel)
         {
             Variable = variable;
             LowerBound = lowerBound;
@@ -113,9 +129,16 @@ namespace Wave.Binding.BoundNodes
             Condition = condition;
             JumpIfTrue = jumpIfTrue;
         }
+
         public override BoundNodeKind Kind => BoundNodeKind.CondGotoStmt;
         public LabelSymbol Label { get; }
         public BoundExpr Condition { get; }
         public bool JumpIfTrue { get; }
+    }
+
+    internal sealed class BoundErrorStmt : BoundStmt
+    {
+        public BoundErrorStmt() { }
+        public override BoundNodeKind Kind => BoundNodeKind.ErrorStmt;
     }
 }

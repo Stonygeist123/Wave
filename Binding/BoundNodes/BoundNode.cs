@@ -19,12 +19,14 @@ namespace Wave.Binding.BoundNodes
         BlockStmt,
         VarStmt,
         IfStmt,
+        LoopStmt,
         WhileStmt,
         DoWhileStmt,
         ForStmt,
         LabelStmt,
         GotoStmt,
-        CondGotoStmt
+        CondGotoStmt,
+        ErrorStmt
     }
 
     public abstract class BoundNode

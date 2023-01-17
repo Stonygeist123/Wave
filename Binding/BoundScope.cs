@@ -58,7 +58,7 @@ namespace Wave.Binding
 
     internal sealed class BoundGlobalScope
     {
-        public BoundGlobalScope(BoundGlobalScope? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, BoundStmt stmt)
+        public BoundGlobalScope(BoundGlobalScope? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, BoundBlockStmt stmt)
         {
             Previous = previous;
             Diagnostics = diagnostics;
@@ -71,6 +71,6 @@ namespace Wave.Binding
         public ImmutableArray<Diagnostic> Diagnostics { get; }
         public ImmutableArray<VariableSymbol> Variables { get; }
         public ImmutableArray<FunctionSymbol> Functions { get; }
-        public BoundStmt Stmt { get; }
+        public BoundBlockStmt Stmt { get; }
     }
 }

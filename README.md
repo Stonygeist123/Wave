@@ -200,3 +200,13 @@ continue;
 Genral:
 continue;
 ```
+
+#### Ret (ret)
+```
+Examples:
+ret;
+ret 42;
+
+Genral:
+ret [<expr>];
+```

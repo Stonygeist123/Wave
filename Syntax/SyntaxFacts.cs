@@ -38,6 +38,7 @@ namespace Wave.Syntax
             "do" => SyntaxKind.Do,
             "break" => SyntaxKind.Break,
             "continue" => SyntaxKind.Continue,
+            "ret" => SyntaxKind.Ret,
             _ => SyntaxKind.Identifier,
         };
 
@@ -80,6 +81,7 @@ namespace Wave.Syntax
             SyntaxKind.Do => "do",
             SyntaxKind.Break => "break",
             SyntaxKind.Continue => "continue",
+            SyntaxKind.Ret => "ret",
             _ => null,
         };
     }

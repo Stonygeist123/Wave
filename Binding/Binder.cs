@@ -62,7 +62,7 @@ namespace Wave.Binding
                 scope = scope.Previous;
             }
 
-            return new(globalScope, diagnostics.ToImmutableArray(), fnBodies.ToImmutable());
+            return new(Lowerer.Lower(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(globalScope.Stmt))), diagnostics.ToImmutableArray(), fnBodies.ToImmutable());
         }
 
         private void BindFnDecl(FnDeclStmt decl)
@@ -91,9 +91,6 @@ namespace Wave.Binding
             }
 
             TypeSymbol type = BindTypeClause(decl.TypeClause) ?? TypeSymbol.Void;
-            if (type != TypeSymbol.Void)
-                _diagnostics.Report(decl.TypeClause!.Span, $"Functions with return types are currently unsupported.");
-
             Token name = decl.Name;
             FunctionSymbol fn = new(name.Lexeme, parameters.ToImmutable(), type, decl);
             if (!_scope.TryDeclareFn(fn))
@@ -150,6 +147,7 @@ namespace Wave.Binding
                 ForStmt f => BindForStmt(f),
                 BreakStmt b => BindBreakStmt(b),
                 ContinueStmt c => BindContinueStmt(c),
+                RetStmt r => BindRetStmt(r),
                 _ => throw new Exception("Unexpected syntax."),
             };
         }
@@ -201,15 +199,15 @@ namespace Wave.Binding
         private BoundWhileStmt BindWhileStmt(WhileStmt w)
         {
             BoundExpr condition = BindExpr(w.Condition, TypeSymbol.Bool);
-            BoundStmt stmt = BoundLoopBody(w.Stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
-            return new(condition, stmt, breakLabel, continueLabel);
+            BoundStmt stmt = BoundLoopStmt(w.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            return new(condition, stmt, bodyLabel, breakLabel, continueLabel);
         }
 
         private BoundDoWhileStmt BindDoWhileStmt(DoWhileStmt d)
         {
-            BoundStmt stmt = BoundLoopBody(d.Stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            BoundStmt stmt = BoundLoopStmt(d.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             BoundExpr condition = BindExpr(d.Condition, TypeSymbol.Bool);
-            return new(stmt, condition, breakLabel, continueLabel);
+            return new(stmt, condition, bodyLabel, breakLabel, continueLabel);
         }
 
         private BoundForStmt BindForStmt(ForStmt f)
@@ -219,17 +217,19 @@ namespace Wave.Binding
 
             _scope = new(_scope);
             VariableSymbol variable = DeclareVar(f.Id, TypeSymbol.Int);
-            BoundStmt stmt = BoundLoopBody(f.Stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            BoundStmt stmt = BoundLoopStmt(f.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             _scope = _scope.Parent!;
-            return new(variable, lowerBound, upperBound, stmt, breakLabel, continueLabel);
+            return new(variable, lowerBound, upperBound, stmt, bodyLabel, breakLabel, continueLabel);
         }
 
-        private BoundStmt BoundLoopBody(StmtNode stmt, out LabelSymbol breakLabel, out LabelSymbol continueLabel)
+        private BoundStmt BoundLoopStmt(StmtNode stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel)
         {
+            bodyLabel = new($"LoopBody_{++_labelCounter}");
             breakLabel = new($"Break_{++_labelCounter}");
             continueLabel = new($"Continue_{_labelCounter}");
 
-            _loopStack.Push((breakLabel, continueLabel));
+
+            _loopStack.Push((bodyLabel, continueLabel));
             BoundStmt boundStmt = BindStmt(stmt);
             _loopStack.Pop();
             return boundStmt;
@@ -239,7 +239,7 @@ namespace Wave.Binding
         {
             if (!_loopStack.Any())
             {
-                _diagnostics.Report(b.Span, "Can only break inside of loops.");
+                _diagnostics.Report(b.Span, "Can only break inside of a loop.");
                 return new BoundErrorStmt();
             }
 
@@ -250,11 +250,35 @@ namespace Wave.Binding
         {
             if (!_loopStack.Any())
             {
-                _diagnostics.Report(c.Span, "Can only continue inside of loops.");
+                _diagnostics.Report(c.Span, "Can only continue inside of a loop.");
                 return new BoundErrorStmt();
             }
 
             return new BoundGotoStmt(_loopStack.Peek().ContinueLabel);
+        }
+
+        private BoundStmt BindRetStmt(RetStmt r)
+        {
+            BoundExpr? value = r.Value is null ? null : BindExprInternal(r.Value);
+            if (_fn is null)
+                _diagnostics.Report(r.Span, "Cannot return outside of a function.");
+            else
+            {
+                if (_fn.Type == TypeSymbol.Void)
+                {
+                    if (value is not null)
+                        _diagnostics.Report(r.Value!.Span, "Cannot return from a void function.");
+                }
+                else
+                {
+                    if (value is null)
+                        _diagnostics.Report(r.Span, $"Expected a value of type \"{_fn.Type}\" to be returned.");
+                    else
+                        value = BindConversion(r.Value!, _fn.Type, false, $"Return type must match the type of function \"{_fn.Name}\"; expected \"{_fn.Type}\" - got \"{value.Type}\".");
+                }
+            }
+
+            return new BoundRetStmt(value);
         }
 
         private BoundExpr BindExpr(ExprNode expr, TypeSymbol type) => BindConversion(expr, type);
@@ -392,21 +416,20 @@ namespace Wave.Binding
             {
                 ParameterSymbol param = fn.Parameters[i];
                 BoundExpr arg = BindExpr(c.Args[i]);
-                arg = BindConversion(c.Args[i], param.Type, false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.");
-                args.Add(arg);
+                args.Add(BindConversion(c.Args[i], param.Type, false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument."));
             }
 
             return new BoundCall(fn, args.ToImmutable());
         }
 
-        private BoundExpr BindConversion(ExprNode expr, TypeSymbol type, bool allowExplicit = false, string? errorImplicit = null) => BindConversion(BindExpr(expr), type, expr.Span, allowExplicit, errorImplicit);
-        private BoundExpr BindConversion(BoundExpr expr, TypeSymbol type, TextSpan span, bool allowExplicit = false, string? errorImplicit = null)
+        private BoundExpr BindConversion(ExprNode expr, TypeSymbol type, bool allowExplicit = false, string? errorImplicit = null, string? errorExists = null) => BindConversion(BindExpr(expr), type, expr.Span, allowExplicit, errorImplicit, errorExists);
+        private BoundExpr BindConversion(BoundExpr expr, TypeSymbol type, TextSpan span, bool allowExplicit = false, string? errorImplicit = null, string? errorExists = null)
         {
             Conversion conversion = Conversion.Classify(expr.Type, type);
             if (!conversion.Exists)
             {
                 if (expr.Type != TypeSymbol.Unknown && type != TypeSymbol.Unknown)
-                    _diagnostics.Report(span, $"No conversion from \"{expr.Type}\" to \"{type}\" possible.");
+                    _diagnostics.Report(span, errorExists is null ? $"No conversion from \"{expr.Type}\" to \"{type}\" possible." : errorExists);
                 return new BoundError();
             }
 

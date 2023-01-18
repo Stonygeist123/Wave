@@ -72,6 +72,10 @@ namespace Wave
                                 ++index;
                             break;
                         }
+                    case BoundRetStmt r:
+                        {
+                            return _lastValue = r.Value is null ? null : EvaluateExpr(r.Value);
+                        }
                 }
             }
 

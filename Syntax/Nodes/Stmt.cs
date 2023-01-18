@@ -153,4 +153,19 @@ namespace Wave.Nodes
         public Token Keyword { get; }
         public Token Semicolon { get; }
     }
+
+    public sealed class RetStmt : StmtNode
+    {
+        public RetStmt(Token keyword, ExprNode? value, Token semicolon)
+        {
+            Keyword = keyword;
+            Value = value;
+            Semicolon = semicolon;
+        }
+
+        public override SyntaxKind Kind => SyntaxKind.RetStmt;
+        public Token Keyword { get; }
+        public ExprNode? Value { get; }
+        public Token Semicolon { get; }
+    }
 }

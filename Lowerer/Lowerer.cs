@@ -60,21 +60,21 @@ namespace Wave.Lowering
 
         protected override BoundStmt RewriteWhileStmt(BoundWhileStmt node)
         {
-            LabelSymbol checkLabel = GenerateLabel();
-            BoundGotoStmt gotoCheck = new(checkLabel);
+            BoundGotoStmt gotoContinue = new(node.ContinueLabel);
+            BoundLabelStmt bodyLabelStmt = new(node.BodyLabel);
             BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
-            BoundLabelStmt checkLabelStmt = new(checkLabel);
-            BoundCondGotoStmt gotoTrue = new(node.ContinueLabel, node.Condition);
+            BoundCondGotoStmt gotoTrue = new(node.BodyLabel, node.Condition);
             BoundLabelStmt breakLabelStmt = new(node.BreakLabel);
-            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(gotoCheck, continueLabelStmt, node.Stmt, checkLabelStmt, gotoTrue, breakLabelStmt)));
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(gotoContinue, bodyLabelStmt, node.Body, continueLabelStmt, gotoTrue, breakLabelStmt)));
         }
 
         protected override BoundStmt RewriteDoWhileStmt(BoundDoWhileStmt node)
         {
+            BoundLabelStmt bodyLabelStmt = new(node.BodyLabel);
             BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
-            BoundCondGotoStmt gotoTrue = new(node.ContinueLabel, node.Condition);
+            BoundCondGotoStmt gotoTrue = new(node.BodyLabel, node.Condition);
             BoundLabelStmt breakLabelStmt = new(node.BreakLabel);
-            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(continueLabelStmt, node.Stmt, gotoTrue, breakLabelStmt)));
+            return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(bodyLabelStmt, node.Body, continueLabelStmt, gotoTrue, breakLabelStmt)));
         }
 
         protected override BoundStmt RewriteForStmt(BoundForStmt node)
@@ -94,7 +94,8 @@ namespace Wave.Lowering
                     )
                 );
 
-            BoundWhileStmt whileStmt = new(condition, new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(node.Stmt, continueLabelStmt, increment)), node.BreakLabel, new("continue"));
+            BoundBlockStmt whileBody = new(ImmutableArray.Create<BoundStmt>(node.Body, continueLabelStmt, increment));
+            BoundWhileStmt whileStmt = new(condition, whileBody, node.BodyLabel, node.BreakLabel, GenerateLabel());
             return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(
                 varDecl,
                 upperBoundDecl,

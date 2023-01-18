@@ -17,6 +17,7 @@ namespace Wave.Binding
             BoundNodeKind.LabelStmt => RewriteLabelStmt((BoundLabelStmt)node),
             BoundNodeKind.GotoStmt => RewriteGotoStmt((BoundGotoStmt)node),
             BoundNodeKind.CondGotoStmt => RewriteCondGotoStmt((BoundCondGotoStmt)node),
+            BoundNodeKind.RetStmt => RewriteRetStmt((BoundRetStmt)node),
             _ => throw new Exception($"Unexpected node to lower: \"{node.Kind}\"."),
         };
 
@@ -94,32 +95,32 @@ namespace Wave.Binding
         protected virtual BoundStmt RewriteWhileStmt(BoundWhileStmt node)
         {
             BoundExpr condition = RewriteExpr(node.Condition);
-            BoundStmt stmt = RewriteStmt(node.Stmt);
-            if (condition == node.Condition && stmt == node.Stmt)
+            BoundStmt stmt = RewriteStmt(node.Body);
+            if (condition == node.Condition && stmt == node.Body)
                 return node;
 
-            return new BoundWhileStmt(condition, stmt, node.BreakLabel, node.ContinueLabel);
+            return new BoundWhileStmt(condition, stmt, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteDoWhileStmt(BoundDoWhileStmt node)
         {
-            BoundStmt stmt = RewriteStmt(node.Stmt);
+            BoundStmt stmt = RewriteStmt(node.Body);
             BoundExpr condition = RewriteExpr(node.Condition);
-            if (stmt == node.Stmt && condition == node.Condition)
+            if (stmt == node.Body && condition == node.Condition)
                 return node;
 
-            return new BoundDoWhileStmt(stmt, condition, node.BreakLabel, node.ContinueLabel);
+            return new BoundDoWhileStmt(stmt, condition, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteForStmt(BoundForStmt node)
         {
             BoundExpr lowerBound = RewriteExpr(node.LowerBound);
             BoundExpr upperBound = RewriteExpr(node.UpperBound);
-            BoundStmt stmt = RewriteStmt(node.Stmt);
-            if (lowerBound == node.LowerBound && upperBound == node.UpperBound && stmt == node.Stmt)
+            BoundStmt stmt = RewriteStmt(node.Body);
+            if (lowerBound == node.LowerBound && upperBound == node.UpperBound && stmt == node.Body)
                 return node;
 
-            return new BoundForStmt(node.Variable, lowerBound, upperBound, stmt, node.BreakLabel, node.ContinueLabel);
+            return new BoundForStmt(node.Variable, lowerBound, upperBound, stmt, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteLabelStmt(BoundLabelStmt node) => node;
@@ -131,6 +132,18 @@ namespace Wave.Binding
                 return node;
 
             return new BoundCondGotoStmt(node.Label, condition, node.JumpIfTrue);
+        }
+
+        protected virtual BoundStmt RewriteRetStmt(BoundRetStmt node)
+        {
+            if (node.Value is null)
+                return node;
+
+            BoundExpr value = RewriteExpr(node.Value);
+            if (value == node.Value)
+                return node;
+
+            return new BoundRetStmt(value);
         }
 
         protected virtual BoundExpr RewriteLiteralExpr(BoundLiteral node) => node;

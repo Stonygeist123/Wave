@@ -1,19 +1,27 @@
-﻿using Wave.Nodes;
+﻿using System.CodeDom.Compiler;
+using Wave.Nodes;
 using Wave.Syntax;
 
 namespace Wave.IO
 {
     public static class TextWriterExtensions
     {
-        public static void SetForeground(this TextWriter writer, ConsoleColor color)
+        private static bool IsConsole(this TextWriter writer)
         {
             if (writer == Console.Out)
+                return !Console.IsOutputRedirected;
+            return writer == Console.Out ? !Console.IsOutputRedirected : writer is IndentedTextWriter iw && iw.InnerWriter.IsConsole();
+        }
+
+        public static void SetForeground(this TextWriter writer, ConsoleColor color)
+        {
+            if (IsConsole(writer))
                 Console.ForegroundColor = color;
         }
 
         public static void ResetColor(this TextWriter writer)
         {
-            if (writer == Console.Out)
+            if (IsConsole(writer))
                 Console.ResetColor();
         }
 

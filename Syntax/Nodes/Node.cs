@@ -140,6 +140,7 @@ namespace Wave.Nodes
         Fn,
         Continue,
         Break,
+        Ret,
 
         // Nodes
         CompilationUnit,
@@ -165,6 +166,7 @@ namespace Wave.Nodes
         IfStmt,
         ForStmt,
         BreakStmt,
-        ContinueStmt
+        ContinueStmt,
+        RetStmt
     }
 }

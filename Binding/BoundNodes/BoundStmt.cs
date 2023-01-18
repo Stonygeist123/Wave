@@ -49,8 +49,10 @@ namespace Wave.Binding.BoundNodes
 
     internal abstract class BoundLoopStmt : BoundStmt
     {
-        public BoundLoopStmt(LabelSymbol breakLabel, LabelSymbol continueLabel)
+        public BoundLoopStmt(BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
         {
+            Body = body;
+            BodyLabel = bodyLabel;
             BreakLabel = breakLabel;
             ContinueLabel = continueLabel;
         }
@@ -58,45 +60,35 @@ namespace Wave.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.LoopStmt;
         public LabelSymbol BreakLabel { get; }
         public LabelSymbol ContinueLabel { get; }
+        public LabelSymbol BodyLabel { get; }
+        public BoundStmt Body { get; }
     }
 
     internal sealed class BoundWhileStmt : BoundLoopStmt
     {
-        public BoundWhileStmt(BoundExpr condition, BoundStmt stmt, LabelSymbol breakLabel, LabelSymbol continueLabel)
-            : base(breakLabel, continueLabel)
-        {
-            Condition = condition;
-            Stmt = stmt;
-        }
-
+        public BoundWhileStmt(BoundExpr condition, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(body, bodyLabel, breakLabel, continueLabel) => Condition = condition;
         public override BoundNodeKind Kind => BoundNodeKind.WhileStmt;
         public BoundExpr Condition { get; }
-        public BoundStmt Stmt { get; }
     }
 
     internal sealed class BoundDoWhileStmt : BoundLoopStmt
     {
-        public BoundDoWhileStmt(BoundStmt stmt, BoundExpr condition, LabelSymbol breakLabel, LabelSymbol continueLabel)
-            : base(breakLabel, continueLabel)
-        {
-            Stmt = stmt;
-            Condition = condition;
-        }
+        public BoundDoWhileStmt(BoundStmt body, BoundExpr condition, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(body, bodyLabel, breakLabel, continueLabel) => Condition = condition;
 
         public override BoundNodeKind Kind => BoundNodeKind.DoWhileStmt;
-        public BoundStmt Stmt { get; }
         public BoundExpr Condition { get; }
     }
 
     internal sealed class BoundForStmt : BoundLoopStmt
     {
-        public BoundForStmt(VariableSymbol variable, BoundExpr lowerBound, BoundExpr upperBound, BoundStmt stmt, LabelSymbol breakLabel, LabelSymbol continueLabel)
-            : base(breakLabel, continueLabel)
+        public BoundForStmt(VariableSymbol variable, BoundExpr lowerBound, BoundExpr upperBound, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(body, bodyLabel, breakLabel, continueLabel)
         {
             Variable = variable;
             LowerBound = lowerBound;
             UpperBound = upperBound;
-            Stmt = stmt;
         }
 
         public override BoundNodeKind Kind => BoundNodeKind.ForStmt;
@@ -104,7 +96,6 @@ namespace Wave.Binding.BoundNodes
         public VariableSymbol Variable { get; }
         public BoundExpr LowerBound { get; }
         public BoundExpr UpperBound { get; }
-        public BoundStmt Stmt { get; }
     }
 
     internal sealed class BoundLabelStmt : BoundStmt
@@ -134,6 +125,13 @@ namespace Wave.Binding.BoundNodes
         public LabelSymbol Label { get; }
         public BoundExpr Condition { get; }
         public bool JumpIfTrue { get; }
+    }
+
+    internal sealed class BoundRetStmt : BoundStmt
+    {
+        public BoundRetStmt(BoundExpr? value) => Value = value;
+        public override BoundNodeKind Kind => BoundNodeKind.RetStmt;
+        public BoundExpr? Value { get; }
     }
 
     internal sealed class BoundErrorStmt : BoundStmt

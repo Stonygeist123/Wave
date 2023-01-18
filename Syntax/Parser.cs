@@ -93,6 +93,7 @@ namespace Wave
             SyntaxKind.For => ParseForStmt(),
             SyntaxKind.Break => ParseBreakStmt(),
             SyntaxKind.Continue => ParseContinueStmt(),
+            SyntaxKind.Ret => ParseRetStmt(),
             _ => ParseExprStmt()
         };
 
@@ -186,6 +187,14 @@ namespace Wave
             Token kw = Match(SyntaxKind.Continue);
             Token semi = Match(SyntaxKind.Semicolon);
             return new(kw, semi);
+        }
+
+        private RetStmt ParseRetStmt()
+        {
+            Token kw = Match(SyntaxKind.Ret);
+            ExprNode? value = Current.Kind == SyntaxKind.Semicolon ? null : ParseExpr();
+            Token semi = Match(SyntaxKind.Semicolon);
+            return new(kw, value, semi);
         }
 
         private ExpressionStmt ParseExprStmt()

@@ -68,8 +68,8 @@ namespace Wave
         public void EmitTree(TextWriter writer)
         {
             BoundProgram program = Binder.BindProgram(GlobalScope);
-            if (program.GlobalScope.Stmt.Stmts.Length > 0)
-                program.GlobalScope.Stmt.WriteTo(writer);
+            if (program.Stmt.Stmts.Length > 0)
+                program.Stmt.WriteTo(writer);
             else
                 foreach (KeyValuePair<FunctionSymbol, BoundBlockStmt> fn in program.FnBodies)
                 {

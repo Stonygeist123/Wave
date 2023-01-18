@@ -26,6 +26,7 @@ namespace Wave.Binding.BoundNodes
         LabelStmt,
         GotoStmt,
         CondGotoStmt,
+        RetStmt,
         ErrorStmt
     }
 

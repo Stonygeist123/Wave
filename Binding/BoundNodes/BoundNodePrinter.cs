@@ -165,14 +165,14 @@ namespace Wave.Binding.BoundNodes
             writer.WriteSpace();
             node.Condition.WriteTo(writer);
             writer.WriteLine();
-            writer.WriteNestedStmt(node.Stmt);
+            writer.WriteNestedStmt(node.Body);
         }
 
         private static void WriteDoWhileStmt(BoundDoWhileStmt node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(SyntaxKind.Do);
             writer.WriteLine();
-            writer.WriteNestedStmt(node.Stmt);
+            writer.WriteNestedStmt(node.Body);
             writer.WriteKeyword(SyntaxKind.While);
             writer.WriteSpace();
             node.Condition.WriteTo(writer);
@@ -189,11 +189,11 @@ namespace Wave.Binding.BoundNodes
             writer.WriteSpace();
             node.LowerBound.WriteTo(writer);
             writer.WriteSpace();
-            writer.WriteKeyword(SyntaxKind.Arrow);
+            writer.WritePunctuation(SyntaxKind.Arrow);
             writer.WriteSpace();
             node.UpperBound.WriteTo(writer);
             writer.WriteLine();
-            writer.WriteNestedStmt(node.Stmt);
+            writer.WriteNestedStmt(node.Body);
         }
 
         private static void WriteLabelStmt(BoundLabelStmt node, IndentedTextWriter writer)
@@ -242,9 +242,7 @@ namespace Wave.Binding.BoundNodes
             if (node.Type == TypeSymbol.Bool || node.Type == TypeSymbol.Int || node.Type == TypeSymbol.Float)
                 writer.WriteLiteral(value);
             else if (node.Type == TypeSymbol.String)
-            {
                 writer.WriteString($"\"{value.Replace("\"", "\"\"")}\"");
-            }
             else
                 throw new Exception($"Unexpected type {node.Type}");
         }

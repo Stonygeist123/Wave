@@ -1,4 +1,6 @@
-﻿namespace Wave
+﻿using Wave.Repl;
+
+namespace Wave
 {
     internal static class Program
     {

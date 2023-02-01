@@ -48,6 +48,35 @@ namespace Wave.Source.Binding
 
         public ImmutableArray<VariableSymbol> GetDeclaredVars() => _variables.Values.ToImmutableArray();
         public ImmutableArray<FunctionSymbol> GetDeclaredFns() => _functions.Values.ToImmutableArray();
+        public ImmutableArray<VariableSymbol> GetVariables()
+        {
+            ImmutableArray<VariableSymbol>.Builder vars = ImmutableArray.CreateBuilder<VariableSymbol>();
+            BoundScope? scope = this;
+            while (scope is not null)
+            {
+                foreach (VariableSymbol v in scope.GetDeclaredVars())
+                    vars.Add(v);
+
+                scope = scope.Parent;
+            }
+
+            return vars.ToImmutableArray();
+        }
+
+        public ImmutableArray<FunctionSymbol> GetFunctions()
+        {
+            ImmutableArray<FunctionSymbol>.Builder fns = ImmutableArray.CreateBuilder<FunctionSymbol>();
+            BoundScope? scope = this;
+            while (scope is not null)
+            {
+                foreach (FunctionSymbol fn in scope.GetDeclaredFns())
+                    fns.Add(fn);
+
+                scope = scope.Parent;
+            }
+
+            return fns.ToImmutableArray();
+        }
 
         public BoundScope? Parent { get; }
     }

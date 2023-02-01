@@ -53,7 +53,6 @@ namespace Wave.Symbols
                     writer.WritePunctuation(SyntaxKind.Arrow);
                     writer.WriteSpace();
                     f.Type.WriteTo(writer);
-                    writer.WriteLine();
                     break;
                 case LabelSymbol:
                     break;

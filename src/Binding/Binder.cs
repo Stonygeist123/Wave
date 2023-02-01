@@ -373,7 +373,6 @@ namespace Wave.src.Binding.BoundNodes
         {
 
             HashSet<string> strCompareHash = stringToCompare.Split(' ').ToHashSet();
-
             int maxIntersectCount = 0;
             string bestMatch = string.Empty;
 
@@ -402,8 +401,8 @@ namespace Wave.src.Binding.BoundNodes
             {
                 if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
                 {
-                    string bestMatch = FindBestMatch(name, _scope.GetDeclaredVars().Select(v => v.Name));
-                    _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    string bestMatch = FindBestMatch(name, _scope.GetVariables().Select(v => v.Name));
+                    _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", _scope.TryLookupFn(name, out _) ? $"\"{name}\" is a function therefore needs to be called." : bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                     return new BoundError();
                 }
 
@@ -413,7 +412,7 @@ namespace Wave.src.Binding.BoundNodes
             {
                 if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
                 {
-                    string bestMatch = FindBestMatch(name, _scope.GetDeclaredVars().Select(v => v.Name));
+                    string bestMatch = FindBestMatch(name, _scope.GetVariables().Select(v => v.Name));
                     _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                     return new BoundError();
                 }
@@ -427,7 +426,7 @@ namespace Wave.src.Binding.BoundNodes
             Token id = a.Identifier;
             if (!_scope.TryLookupVar(id.Lexeme, out VariableSymbol? variable))
             {
-                string bestMatch = FindBestMatch(id.Lexeme, _scope.GetDeclaredVars().Select(v => v.Name));
+                string bestMatch = FindBestMatch(id.Lexeme, _scope.GetVariables().Select(v => v.Name));
                 _diagnostics.Report(id.Location, $"Could not find \"{id.Lexeme}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                 return new BoundError();
             }
@@ -446,7 +445,7 @@ namespace Wave.src.Binding.BoundNodes
             string name = c.Callee.Lexeme;
             if (!_scope.TryLookupFn(name, out FunctionSymbol? fn) && fn is null)
             {
-                string bestMatch = FindBestMatch(name, _scope.GetDeclaredFns().Select(f => f.Name));
+                string bestMatch = FindBestMatch(name, _scope.GetFunctions().Select(f => f.Name));
                 _diagnostics.Report(c.Callee.Location, $"Could not find function \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                 return new BoundError();
             }

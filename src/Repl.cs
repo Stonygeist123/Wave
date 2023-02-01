@@ -89,7 +89,7 @@ namespace Wave.Repl
 
                     Console.ResetColor();
                     _lineRenderer(line);
-                    Console.Write(new string(' ', Console.WindowWidth - line.Length));
+                    Console.Write(new string(' ', Console.WindowWidth - line.Length - 2));
                     ++lineCount;
                 }
 
@@ -207,7 +207,6 @@ namespace Wave.Repl
                 }
 
             if (key.Key != ConsoleKey.Backspace && key.KeyChar >= ' ')
-
                 HandleTyping(document, view, key.KeyChar.ToString());
         }
 
@@ -370,7 +369,6 @@ namespace Wave.Repl
 
         protected void ClearHistory() => _history.Clear();
         protected virtual void RenderLine(string line) => Console.Write(line);
-
         protected virtual void EvaluateMetaCommand(string input)
         {
             List<string> args = new();
@@ -582,7 +580,10 @@ namespace Wave.Repl
         {
             IEnumerable<Symbol> symbols = (_previous ?? emptyCompilation).GetSymbols().OrderBy(s => s.Kind).ThenBy(s => s.Name);
             foreach (Symbol symbol in symbols)
+            {
                 symbol.WriteTo(Console.Out);
+                Console.Out.WriteLine();
+            }
         }
 
         [MetaCommand("dump", "Shows the bound tree of a given function")]

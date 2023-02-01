@@ -1,11 +1,13 @@
 ﻿using System.Collections.Immutable;
 using Wave.Lowering;
+using Wave.Source.Binding;
 using Wave.Source.Binding.BoundNodes;
 using Wave.Source.Syntax;
 using Wave.Source.Syntax.Nodes;
 using Wave.Symbols;
+using static Wave.Source.Binding.ControlFlowGraph;
 
-namespace Wave.Source.Binding
+namespace Wave.src.Binding.BoundNodes
 {
     internal class Binder
     {
@@ -22,7 +24,7 @@ namespace Wave.Source.Binding
 
             if (fn is not null)
                 foreach (ParameterSymbol param in fn.Parameters)
-                    _scope.TryDeclareVar(param);
+                    _scope.TryDeclareVar(param, true);
         }
 
         public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
@@ -58,7 +60,7 @@ namespace Wave.Source.Binding
                     Binder binder = new(parentScope, fn);
                     BoundBlockStmt body = Lowerer.Lower(binder.BindStmt(fn.Decl!.Body));
 
-                    if (fn.Type != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(body) && fn.Decl!.Body.Kind != SyntaxKind.ExpressionStmt)
+                    if (fn.Type != TypeSymbol.Void && !AllPathsReturn(body) && fn.Decl!.Body.Kind != SyntaxKind.ExpressionStmt)
                         binder._diagnostics.Report(fn.Decl.Name.Location, $"All code paths must return a value.");
 
                     fnBodies.Add(fn, body);
@@ -93,8 +95,27 @@ namespace Wave.Source.Binding
                 }
             }
 
-            BoundExpr? boundExpr = decl!.Body.Kind == SyntaxKind.ExpressionStmt ? BindExpr(((ExpressionStmt)decl!.Body).Expr) : null;
+            BoundExpr? boundExpr = null;
+            if (decl!.Body.Kind == SyntaxKind.ExpressionStmt)
+            {
+                _scope = new(_scope);
+                foreach (ParameterSymbol parameter in parameters.ToImmutable())
+                    _scope.TryDeclareVar(parameter);
+
+                boundExpr = BindExpr(((ExpressionStmt)decl!.Body).Expr);
+                _scope = _scope.Parent!;
+            }
+
             TypeSymbol fnType = BindTypeClause(decl.TypeClause) ?? boundExpr?.Type ?? TypeSymbol.Void;
+            if (decl.TypeClause is null && fnType == TypeSymbol.Void)
+            {
+                Binder binder = new(null, new(decl.Name.Lexeme, parameters.ToImmutable(), fnType));
+                ControlFlowGraph graph = CreateGraph(Lowerer.Lower(binder.BindStmt(decl.Body!)));
+                BasicBlockBranch? branch = graph.Start.Outgoing.FirstOrDefault(b => b.To.Stmts.Any(s => s.Kind == BoundNodeKind.RetStmt && ((BoundRetStmt)s).Value is not null));
+                if (branch is not null)
+                    fnType = ((BoundRetStmt)branch.To.Stmts.First(s => s.Kind == BoundNodeKind.RetStmt)).Value!.Type;
+            }
+
             if (boundExpr is not null && !Conversion.Classify(boundExpr.Type, fnType).IsImplicit)
                 _diagnostics.Report(decl!.Body.Location, $"Expected a value with type of \"{fnType}\" - got \"{boundExpr.Type}\".");
 
@@ -377,14 +398,28 @@ namespace Wave.Source.Binding
             if (n.Identifier.IsMissing)
                 return new BoundError();
 
-            if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
+            if (_fn is null)
             {
-                string bestMatch = FindBestMatch(name, _scope.GetDeclaredVars().Select(v => v.Name));
-                _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
-                return new BoundError();
-            }
+                if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
+                {
+                    string bestMatch = FindBestMatch(name, _scope.GetDeclaredVars().Select(v => v.Name));
+                    _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    return new BoundError();
+                }
 
-            return new BoundName(variable!);
+                return new BoundName(variable!);
+            }
+            else
+            {
+                if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
+                {
+                    string bestMatch = FindBestMatch(name, _scope.GetDeclaredVars().Select(v => v.Name));
+                    _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    return new BoundError();
+                }
+
+                return new BoundName(variable!);
+            }
         }
 
         private BoundExpr BindAssignmentExpr(AssignmentExpr a)

@@ -11,7 +11,7 @@ namespace Wave.Symbols
             {
                 case ParameterSymbol p:
                     writer.WriteIdentifier(p.Name);
-                    writer.WriteKeyword(SyntaxKind.Colon);
+                    writer.WritePunctuation(SyntaxKind.Colon);
                     writer.WriteSpace();
                     p.Type.WriteTo(writer);
                     break;
@@ -25,7 +25,7 @@ namespace Wave.Symbols
                     }
 
                     writer.WriteIdentifier(v.Name);
-                    writer.WriteKeyword(SyntaxKind.Colon);
+                    writer.WritePunctuation(SyntaxKind.Colon);
                     writer.WriteSpace();
                     v.Type.WriteTo(writer);
                     break;
@@ -49,6 +49,10 @@ namespace Wave.Symbols
                     }
 
                     writer.WritePunctuation(SyntaxKind.RParen);
+                    writer.WriteSpace();
+                    writer.WritePunctuation(SyntaxKind.Arrow);
+                    writer.WriteSpace();
+                    f.Type.WriteTo(writer);
                     writer.WriteLine();
                     break;
                 case LabelSymbol:

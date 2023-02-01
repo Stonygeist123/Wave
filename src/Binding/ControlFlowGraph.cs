@@ -261,7 +261,7 @@ namespace Wave.Source.Binding
             writer.WriteLine("}");
         }
 
-        public static ControlFlowGraph Create(BoundBlockStmt body)
+        public static ControlFlowGraph CreateGraph(BoundBlockStmt body)
         {
             BasicBlockBuilder blockBuilder = new();
             List<BasicBlock> blocks = blockBuilder.Build(body);
@@ -271,7 +271,7 @@ namespace Wave.Source.Binding
 
         public static bool AllPathsReturn(BoundBlockStmt body)
         {
-            ControlFlowGraph graph = Create(body);
+            ControlFlowGraph graph = CreateGraph(body);
             foreach (BasicBlockBranch branch in graph.End.Incoming)
             {
                 BoundStmt? lastStmt = branch.From.Stmts.LastOrDefault();

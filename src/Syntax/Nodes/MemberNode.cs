@@ -59,7 +59,7 @@
         public Token Name { get; }
         public ParameterList? Parameters { get; }
         public TypeClause? TypeClause { get; }
-        public StmtNode Body { get; }
+        public StmtNode Body { get; internal set; }
         public override SyntaxKind Kind => SyntaxKind.FnDecl;
     }
 }

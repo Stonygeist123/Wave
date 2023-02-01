@@ -204,8 +204,9 @@ continue;
 #### Ret (ret)
 ```
 Examples:
-ret;
-ret 42;
+fn x -> int {
+	ret 42;
+}
 
 Genral:
 ret [<expr>];

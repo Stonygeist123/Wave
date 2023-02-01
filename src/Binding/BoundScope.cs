@@ -8,14 +8,10 @@ namespace Wave.Source.Binding
     {
         private readonly Dictionary<string, VariableSymbol> _variables = new();
         private readonly Dictionary<string, FunctionSymbol> _functions = new();
-        public BoundScope(BoundScope? parent)
+        public BoundScope(BoundScope? parent) => Parent = parent;
+        public bool TryDeclareVar(VariableSymbol variable, bool force = false)
         {
-            Parent = parent;
-        }
-
-        public bool TryDeclareVar(VariableSymbol variable)
-        {
-            if (TryLookupVar(variable.Name, out _))
+            if (TryLookupVar(variable.Name, out _) && !force)
                 return false;
 
             _variables.Add(variable.Name, variable);

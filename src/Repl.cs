@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Reflection;
+using System.Text;
 using Wave.IO;
 using Wave.Source;
 using Wave.Source.Syntax;
@@ -11,9 +13,24 @@ namespace Wave.Repl
 {
     internal abstract class Repl
     {
+        private readonly List<MetaCommand> _metaCmds = new();
         private readonly List<string> _history = new();
         private int _historyIndex = 0;
         private bool _done = false;
+        protected Repl() => InitializeMetaCommand();
+        private void InitializeMetaCommand()
+        {
+            foreach (MethodInfo method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
+            {
+                MetaCommandAttribute? attr = method.GetCustomAttribute<MetaCommandAttribute>();
+                if (attr is null)
+                    continue;
+
+                MetaCommand metaCmd = new(attr.Name, attr.Description, method);
+                _metaCmds.Add(metaCmd);
+            }
+        }
+
         public void Run()
         {
             while (true)
@@ -322,7 +339,7 @@ namespace Wave.Repl
         private void HandlePageDown(ObservableCollection<string> document, SubmissionView view)
         {
             ++_historyIndex;
-            if (_historyIndex >= _history.Count)
+            if (_historyIndex >= _history.Count - 1)
                 _historyIndex = 0;
 
             UpdateDocumentFromHistory(document, view);
@@ -356,20 +373,153 @@ namespace Wave.Repl
 
         protected virtual void EvaluateMetaCommand(string input)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"Invalid command \"{input}\".\n");
-            Console.ResetColor();
+            List<string> args = new();
+            int position = 1;
+            bool inQuotes = false;
+            StringBuilder sb = new();
+            while (position < input.Length)
+            {
+                char c = input[position];
+                char l = position + 1 >= input.Length ? '\0' : input[position + 1];
+
+                if (char.IsWhiteSpace(c))
+                {
+
+                    if (!inQuotes)
+                        CommitPendingArg();
+                    else
+                        sb.Append(c);
+                }
+                else if (c == '"')
+                {
+                    if (!inQuotes)
+                        inQuotes = true;
+                    else if (l == '"')
+                    {
+                        sb.Append(c);
+                        ++position;
+                    }
+                    else
+                        inQuotes = false;
+                }
+                else
+                    sb.Append(c);
+
+                ++position;
+            }
+
+            CommitPendingArg();
+            void CommitPendingArg()
+            {
+                string arg = sb.ToString();
+                if (!string.IsNullOrWhiteSpace(arg))
+                    args.Add(arg);
+                sb.Clear();
+            }
+
+            string? cmdName = args.FirstOrDefault();
+            if (args.Any())
+                args.RemoveAt(0);
+
+            MetaCommand? cmd = _metaCmds.SingleOrDefault(cmd => cmd.Name == cmdName);
+            if (cmd is null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error: Invalid command \"{input}\".");
+                Console.ResetColor();
+                return;
+            }
+
+            ParameterInfo[] parameters = cmd.Method.GetParameters();
+            if (args.Count != parameters.Length)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error: Invalid number of arguments; expected \"{parameters.Length}\" - got \"{args.Count}\".");
+                Console.WriteLine($"Usage: \"#{cmd.Name} {string.Join(", ", parameters.Select(p => $"<{p.Name}>"))}\"");
+                Console.ResetColor();
+                return;
+            }
+
+            Repl? instance = cmd.Method.IsStatic ? null : this;
+            cmd.Method.Invoke(instance, args.ToArray());
+            Console.Out.WriteLine();
         }
 
         protected abstract bool IsCompleteSubmission(string text);
         protected abstract void EvaluateSubmission(string text);
+
+        [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+        protected sealed class MetaCommandAttribute : Attribute
+        {
+            public string Name { get; }
+            public string Description { get; }
+            public MetaCommandAttribute(string name, string description)
+            {
+                Name = name;
+                Description = description;
+            }
+        }
+
+        private sealed class MetaCommand
+        {
+            public string Name { get; }
+            public string Description { get; }
+            public MethodInfo Method { get; }
+            public MetaCommand(string name, string description, MethodInfo method)
+            {
+                Name = name;
+                Description = description;
+                Method = method;
+            }
+        }
+
+        [MetaCommand("help", "Shows help")]
+        protected void EvaluateHelp()
+        {
+            int maxNameLength = _metaCmds.Max(cmd => cmd.Name.Length);
+            foreach (MetaCommand metaCmd in _metaCmds.OrderBy(mc => mc.Name))
+            {
+                ParameterInfo[] metaParams = metaCmd.Method.GetParameters();
+                if (!metaParams.Any())
+                {
+                    Console.Out.WritePunctuation("#");
+                    Console.Out.WriteIdentifier(metaCmd.Name.PadRight(maxNameLength));
+                }
+                else
+                {
+                    Console.Out.WritePunctuation("#");
+                    Console.Out.WriteIdentifier(metaCmd.Name);
+                    foreach (ParameterInfo p in metaParams)
+                    {
+                        Console.Out.WriteSpace();
+                        Console.Out.WritePunctuation("<");
+                        Console.Out.WriteIdentifier(p.Name!);
+                        Console.Out.WritePunctuation(">");
+                    }
+
+                    Console.Out.WriteLine();
+                    Console.Out.WriteSpace();
+                    for (int _ = 0; _ < maxNameLength; ++_)
+                        Console.Out.WriteSpace();
+                }
+
+                Console.Out.WriteSpace();
+                Console.Out.WriteSpace();
+                Console.Out.WriteSpace();
+                Console.Out.WritePunctuation(metaCmd.Description);
+                Console.Out.WriteLine();
+            }
+        }
     }
 
     internal sealed class WaveRepl : Repl
     {
         private Compilation? _previous = null;
         private bool _showTree = false, _showProgram = false;
+        private bool _loadingSubmission = false;
         private readonly Dictionary<VariableSymbol, object?> _vars = new();
+        private static readonly Compilation emptyCompilation = new();
+        public WaveRepl() => LoadSubmissions();
 
         protected override void RenderLine(string line)
         {
@@ -392,34 +542,68 @@ namespace Wave.Repl
             }
         }
 
-        protected override void EvaluateMetaCommand(string input)
+        [MetaCommand("cls", "Clears the console")]
+        private void EvaluateCls() => Console.Clear();
+
+        [MetaCommand("reset", "Clears all previous submissions")]
+        private void EvaluateReset()
         {
-            switch (input.ToLower())
+            _previous = null;
+            _vars.Clear();
+            ClearSubmissions();
+        }
+
+        [MetaCommand("tree", "Shows the abstract syntax tree")]
+        private void EvaluateTree() => Console.WriteLine($"{((_showTree = !_showTree) ? "Enabled" : "Disabled")} showing tree.\n");
+
+        [MetaCommand("program", "Shows the bound program")]
+        private void EvaluateProgram() => Console.WriteLine($"{((_showProgram = !_showProgram) ? "Enabled" : "Disabled")} showing program.\n");
+
+        [MetaCommand("load", "Loads a script file")]
+        private void EvaluateLoad(string path)
+        {
+            path = Path.GetFullPath(path);
+            if (!File.Exists(path))
             {
-                case "#tree":
-                    _showTree = !_showTree;
-                    Console.WriteLine($"{(_showTree ? "Enabled" : "Disabled")} showing tree.\n");
-                    break;
-                case "#program":
-                    _showProgram = !_showProgram;
-                    Console.WriteLine($"{(_showProgram ? "Enabled" : "Disabled")} showing program.\n");
-                    break;
-                case "#cls":
-                    Console.Clear();
-                    break;
-                case "#reset":
-                    _previous = null;
-                    break;
-                default:
-                    base.EvaluateMetaCommand(input);
-                    break;
+                Console.Out.SetForeground(ConsoleColor.Red);
+                Console.Out.WriteLine($"Error: Could not find file at position \"{path}\".");
+                Console.Out.ResetColor();
+                return;
             }
+
+            string text = File.ReadAllText(path);
+            EvaluateSubmission(text);
+            SyntaxTree syntaxTree = SyntaxTree.Load(path);
+            _previous = _previous is null ? new(syntaxTree) : _previous.ContinueWith(syntaxTree);
+        }
+
+        [MetaCommand("ls", "Lists all symbols")]
+        private void EvaluateLs()
+        {
+            IEnumerable<Symbol> symbols = (_previous ?? emptyCompilation).GetSymbols().OrderBy(s => s.Kind).ThenBy(s => s.Name);
+            foreach (Symbol symbol in symbols)
+                symbol.WriteTo(Console.Out);
+        }
+
+        [MetaCommand("dump", "Shows the bound tree of a given function")]
+        private void EvaluateDump(string name)
+        {
+            Compilation compilation = (_previous ?? emptyCompilation);
+            FunctionSymbol? symbol = compilation.GetSymbols().OfType<FunctionSymbol>().SingleOrDefault(f => f.Name == name);
+            if (symbol is null)
+            {
+                Console.Out.SetForeground(ConsoleColor.Red);
+                Console.Out.WriteLine($"Error: Could not find function \"{name}\".");
+                Console.Out.ResetColor();
+                return;
+            }
+
+            compilation.EmitTree(symbol, Console.Out);
         }
 
         protected override void EvaluateSubmission(string text)
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(text, "<stdin>"));
-
             Compilation compilation = _previous is null
                             ? new(syntaxTree)
                             : _previous.ContinueWith(syntaxTree);
@@ -437,20 +621,67 @@ namespace Wave.Repl
             }
 
             EvaluationResult result = compilation.Evaluate(_vars);
-
             if (!result.Diagnostics.Any())
             {
-                if (result.Value is not null)
+                if (result.Value is not null && !_loadingSubmission)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkBlue;
                     Console.WriteLine(result.Value);
                     Console.ResetColor();
+                    Console.WriteLine();
                 }
-                Console.WriteLine();
+
+                if ((_previous?.Functions.Length ?? 0) < compilation.Functions.Length || (_previous?.Variables.Length ?? 0) < compilation.Variables.Length)
+                    SaveSubmission(text);
+
                 _previous = compilation;
             }
             else
                 Console.Out.WriteDiagnostics(result.Diagnostics);
+        }
+
+        private static string GetSubmissionsDir()
+        {
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return Path.Combine(localAppData, "Wave", "Submissions");
+        }
+
+        private static void ClearSubmissions() => Directory.Delete(GetSubmissionsDir(), true);
+        private void LoadSubmissions()
+        {
+            string submissionsDir = GetSubmissionsDir();
+            if (!Directory.Exists(submissionsDir))
+                return;
+
+            string[] files = Directory.GetFiles(submissionsDir).OrderBy(f => f).ToArray();
+            if (!files.Any())
+                return;
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"Loaded \"{files.Length}\" submissions.");
+            Console.ResetColor();
+
+            _loadingSubmission = true;
+            foreach (string file in files)
+            {
+                string text = File.ReadAllText(file);
+                EvaluateSubmission(text);
+            }
+
+            _loadingSubmission = false;
+        }
+
+        private void SaveSubmission(string text)
+        {
+            if (_loadingSubmission)
+                return;
+
+            string submissionsDir = GetSubmissionsDir();
+            Directory.CreateDirectory(submissionsDir);
+            int count = Directory.GetFiles(submissionsDir).Length;
+            string name = $"submissions{count:0000}";
+            string filePath = Path.Combine(submissionsDir, name);
+            File.WriteAllText(filePath, text);
         }
 
         protected override bool IsCompleteSubmission(string text)

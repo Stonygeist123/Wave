@@ -33,10 +33,10 @@ namespace Wave.Source.Syntax
 
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));
         public static SyntaxTree Parse(SourceText source) => new(source, Parse);
-        internal static ImmutableArray<Token> ParseTokens(string line) => ParseTokens(line, out _);
-        internal static ImmutableArray<Token> ParseTokens(SourceText source) => ParseTokens(source, out _);
-        internal static ImmutableArray<Token> ParseTokens(string line, out ImmutableArray<Diagnostic> diagnostics) => ParseTokens(SourceText.From(line), out diagnostics);
-        internal static ImmutableArray<Token> ParseTokens(SourceText source, out ImmutableArray<Diagnostic> diagnostics)
+        public static ImmutableArray<Token> ParseTokens(string line) => ParseTokens(line, out _);
+        public static ImmutableArray<Token> ParseTokens(SourceText source) => ParseTokens(source, out _);
+        public static ImmutableArray<Token> ParseTokens(string line, out ImmutableArray<Diagnostic> diagnostics) => ParseTokens(SourceText.From(line), out diagnostics);
+        public static ImmutableArray<Token> ParseTokens(SourceText source, out ImmutableArray<Diagnostic> diagnostics)
         {
             List<Token> tokens = new();
             void ParseTokens(SyntaxTree syntaxTree, out CompilationUnit root, out ImmutableArray<Diagnostic> diagnostics)

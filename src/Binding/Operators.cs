@@ -131,8 +131,8 @@ namespace Wave.Source.Binding
             new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, TypeSymbol.Bool),
 
             new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.String),
-            new(SyntaxKind.EqEq, BoundBinOpKind.EqEq, TypeSymbol.String),
-            new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, TypeSymbol.String),
+            new(SyntaxKind.EqEq, BoundBinOpKind.EqEq, TypeSymbol.String, TypeSymbol.Bool),
+            new(SyntaxKind.NotEq, BoundBinOpKind.NotEq, TypeSymbol.String, TypeSymbol.Bool),
 
             new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.String, TypeSymbol.Float, TypeSymbol.String),
             new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.String, TypeSymbol.Int, TypeSymbol.String),

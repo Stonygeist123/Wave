@@ -5,7 +5,7 @@ using Wave.Symbols;
 
 namespace Wave.Source.Binding
 {
-    internal sealed class ControlFlowGraph
+    public sealed class ControlFlowGraph
     {
         private ControlFlowGraph(BasicBlock start, BasicBlock end, List<BasicBlock> blocks, List<BasicBlockBranch> edges)
         {

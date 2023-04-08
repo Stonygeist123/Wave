@@ -13,7 +13,7 @@
 
     public abstract class Symbol
     {
-        internal Symbol(string name) => Name = name;
+        public Symbol(string name) => Name = name;
         public abstract SymbolKind Kind { get; }
         public string Name { get; }
         public void WriteTo(TextWriter writer) => SymbolPrinter.WriteTo(this, writer);

@@ -9,68 +9,111 @@ using static Wave.Source.Binding.ControlFlowGraph;
 
 namespace Wave.src.Binding.BoundNodes
 {
-    internal class Binder
+    public class Binder
     {
+        private readonly bool _isScript;
         private readonly FunctionSymbol? _fn;
         private readonly DiagnosticBag _diagnostics = new();
         private BoundScope _scope;
         public DiagnosticBag Diagnostics => _diagnostics;
         private readonly Stack<(LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _loopStack = new();
         private int _labelCounter = 0;
-        public Binder(BoundScope? parent, FunctionSymbol? fn)
+        public Binder(bool isScript, BoundScope? parent, FunctionSymbol? fn)
         {
             _scope = new(parent);
+            _isScript = isScript;
             _fn = fn;
-
             if (fn is not null)
                 foreach (ParameterSymbol param in fn.Parameters)
                     _scope.TryDeclareVar(param, true);
         }
 
-        public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
+        public static BoundGlobalScope BindGlobalScope(bool isScript, BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
         {
             BoundScope parentScope = CreateParentScope(previous);
-            Binder binder = new(parentScope, null);
+            Binder binder = new(isScript, parentScope, null);
             IEnumerable<FnDeclStmt> fnDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<FnDeclStmt>();
             foreach (FnDeclStmt fnDecl in fnDecls)
                 binder.BindFnDecl(fnDecl);
 
-            ImmutableArray<BoundStmt>.Builder stmts = ImmutableArray.CreateBuilder<BoundStmt>();
+            GlobalStmt?[] firstGlobalStmts = syntaxTrees.Select(st => st.Root.Members.OfType<GlobalStmt>().FirstOrDefault()).Where(g => g is not null).ToArray();
+            if (firstGlobalStmts.Length > 1)
+            {
+                foreach (GlobalStmt? globalStmt in firstGlobalStmts)
+                    if (globalStmt is not null)
+                        binder.Diagnostics.Report(globalStmt.Location, "At most one file can have global statements.");
+            }
+
             IEnumerable<GlobalStmt> globalStmts = syntaxTrees.SelectMany(s => s.Root.Members).OfType<GlobalStmt>();
+            ImmutableArray<BoundStmt>.Builder stmts = ImmutableArray.CreateBuilder<BoundStmt>();
             foreach (GlobalStmt globalStmt in globalStmts)
-                stmts.Add(binder.BindStmt(globalStmt.Stmt));
+                stmts.Add(binder.BindGlobalStmt(globalStmt.Stmt));
 
             ImmutableArray<FunctionSymbol> functions = binder._scope.GetDeclaredFns();
-            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVars();
+            FunctionSymbol? mainFn = null, scriptFn = null;
+            if (isScript)
+            {
+                if (globalStmts.Any())
+                    scriptFn = new FunctionSymbol("$eval", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void);
+            }
+            else
+            {
+                mainFn = functions.FirstOrDefault(fn => fn.Name == "main");
+                if (mainFn is not null && (mainFn.Type != TypeSymbol.Void || mainFn.Parameters.Any()))
+                    binder.Diagnostics.Report(mainFn.Decl!.Name.Location, "The main function must neither have a return type except void nor parameters.", $"\"fn main {mainFn.Decl!.Body.Location.Text.Split(Environment.NewLine).First()}\"");
+
+                if (globalStmts.Any())
+                {
+                    if (mainFn is null)
+                        mainFn = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void);
+                    else
+                    {
+                        binder.Diagnostics.Report(mainFn.Decl!.Name.Location, "Cannot declare a main function when global statements are used.");
+                        foreach (GlobalStmt? globalStmt in firstGlobalStmts)
+                            if (globalStmt is not null)
+                                binder.Diagnostics.Report(globalStmt.Location, "Cannot use global statements when a main function is declared.");
+                    }
+                }
+            }
+
             ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
-            return new(previous, diagnostics, variables, functions, new BoundBlockStmt(stmts.ToImmutable()));
+            FunctionSymbol? globalStmtFn = mainFn ?? scriptFn;
+
+            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVars();
+            if (previous is not null)
+                diagnostics.InsertRange(0, previous.Diagnostics);
+
+            return new(previous, mainFn, scriptFn, new BoundBlockStmt(stmts.ToImmutable()), variables, functions, diagnostics);
         }
 
-        public static BoundProgram BindProgram(BoundGlobalScope globalScope)
+        public static BoundProgram BindProgram(bool isScript, BoundProgram? previous, BoundGlobalScope globalScope)
         {
             BoundScope parentScope = CreateParentScope(globalScope);
             ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Builder fnBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStmt>();
             DiagnosticBag diagnostics = new();
-
             BoundGlobalScope? scope = globalScope;
-            while (scope is not null)
+            foreach (FunctionSymbol fn in scope.Functions)
             {
-                foreach (FunctionSymbol fn in scope.Functions)
-                {
-                    Binder binder = new(parentScope, fn);
-                    BoundBlockStmt body = Lowerer.Lower(binder.BindStmt(fn.Decl!.Body));
+                Binder binder = new(isScript, parentScope, fn);
+                BoundBlockStmt body = Lowerer.Lower(binder.BindGlobalStmt(fn.Decl!.Body));
+                if (fn.Type != TypeSymbol.Void && !AllPathsReturn(body) && fn.Decl!.Body.Kind != SyntaxKind.ExpressionStmt)
+                    binder._diagnostics.Report(fn.Decl.Name.Location, $"All code paths must return a value.");
 
-                    if (fn.Type != TypeSymbol.Void && !AllPathsReturn(body) && fn.Decl!.Body.Kind != SyntaxKind.ExpressionStmt)
-                        binder._diagnostics.Report(fn.Decl.Name.Location, $"All code paths must return a value.");
-
-                    fnBodies.Add(fn, body);
-                    diagnostics.AddRange(binder.Diagnostics);
-                }
-
-                scope = scope.Previous;
+                fnBodies.Add(fn, body);
+                diagnostics.AddRange(binder.Diagnostics);
             }
 
-            return new(Lowerer.Lower(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(globalScope.Stmt))), diagnostics.ToImmutableArray(), fnBodies.ToImmutable());
+            if (globalScope.MainFn is not null && globalScope.Stmt.Stmts.Any())
+                fnBodies.Add(globalScope.MainFn, Lowerer.Lower(globalScope.Stmt));
+            else if (globalScope.ScriptFn is not null)
+            {
+                ImmutableArray<BoundStmt> stmts = globalScope.Stmt.Stmts;
+                if (stmts.Length == 1 && stmts.First() is BoundExpressionStmt es && es.Expr.Type != TypeSymbol.Void)
+                    stmts = stmts.SetItem(0, new BoundRetStmt(es.Expr));
+                fnBodies.Add(globalScope.ScriptFn, Lowerer.Lower(new BoundBlockStmt(stmts)));
+            }
+
+            return new(previous, globalScope.MainFn, globalScope.ScriptFn, diagnostics.ToImmutableArray(), fnBodies.ToImmutable());
         }
 
         private void BindFnDecl(FnDeclStmt decl)
@@ -88,7 +131,7 @@ namespace Wave.src.Binding.BoundNodes
                     {
                         TypeSymbol? pType = BindTypeClause(param.Type);
                         if (pType is null)
-                            _diagnostics.Report(param.Type.Id.Location, $"Expected type.", "Grammar: \": <type>\".");
+                            _diagnostics.Report(param.Type.Id.Location, $"Expected type.", "\": <type>\".");
                         else
                             parameters.Add(new ParameterSymbol(pName, pType));
                     }
@@ -102,14 +145,14 @@ namespace Wave.src.Binding.BoundNodes
                 foreach (ParameterSymbol parameter in parameters.ToImmutable())
                     _scope.TryDeclareVar(parameter);
 
-                boundExpr = BindExpr(((ExpressionStmt)decl!.Body).Expr);
+                boundExpr = BindExpr(((ExpressionStmt)decl!.Body).Expr, true);
                 _scope = _scope.Parent!;
             }
 
-            TypeSymbol fnType = BindTypeClause(decl.TypeClause) ?? boundExpr?.Type ?? TypeSymbol.Void;
+            TypeSymbol fnType = decl.TypeClause?.Id.Lexeme == "void" ? TypeSymbol.Void : BindTypeClause(decl.TypeClause) ?? boundExpr?.Type ?? TypeSymbol.Void;
             if (decl.TypeClause is null && fnType == TypeSymbol.Void)
             {
-                Binder binder = new(null, new(decl.Name.Lexeme, parameters.ToImmutable(), fnType));
+                Binder binder = new(_isScript, null, new(decl.Name.Lexeme, parameters.ToImmutable(), fnType));
                 ControlFlowGraph graph = CreateGraph(Lowerer.Lower(binder.BindStmt(decl.Body!)));
                 BasicBlockBranch? branch = graph.Start.Outgoing.FirstOrDefault(b => b.To.Stmts.Any(s => s.Kind == BoundNodeKind.RetStmt && ((BoundRetStmt)s).Value is not null));
                 if (branch is not null)
@@ -160,7 +203,24 @@ namespace Wave.src.Binding.BoundNodes
             return res;
         }
 
-        public BoundStmt BindStmt(StmtNode stmt)
+        private BoundStmt BindGlobalStmt(StmtNode stmt) => BindStmt(stmt, true);
+        private BoundStmt BindStmt(StmtNode stmt, bool isGlobal = false)
+        {
+            BoundStmt res = BindStmtInternal(stmt);
+            if (!_isScript || !isGlobal)
+            {
+                if (res is BoundExpressionStmt e)
+                {
+                    bool allowed = e.Expr.Kind == BoundNodeKind.ErrorExpr || e.Expr.Kind == BoundNodeKind.AssignmentExpr || e.Expr.Kind == BoundNodeKind.CallExpr;
+                    if (!allowed)
+                        _diagnostics.Report(stmt.Location, $"Only assignment and call expressions can be used as a statement.");
+                }
+            }
+
+            return res;
+        }
+
+        public BoundStmt BindStmtInternal(StmtNode stmt)
         {
             return stmt switch
             {
@@ -184,7 +244,7 @@ namespace Wave.src.Binding.BoundNodes
             ImmutableArray<BoundStmt>.Builder stmts = ImmutableArray.CreateBuilder<BoundStmt>();
             _scope = new(_scope);
             foreach (StmtNode stmt in b.Stmts)
-                stmts.Add(BindStmt(stmt));
+                stmts.Add(BindStmtInternal(stmt));
 
             _scope = _scope.Parent!;
             return new(stmts.ToImmutable());
@@ -217,8 +277,8 @@ namespace Wave.src.Binding.BoundNodes
             if (condition.Type != TypeSymbol.Bool)
                 _diagnostics.Report(i.Condition.Location, $"Condition needs to be a bool.");
 
-            BoundStmt thenBranch = BindStmt(i.ThenBranch);
-            BoundStmt? elseClause = i.ElseClause is not null ? BindStmt(i.ElseClause.Stmt) : null;
+            BoundStmt thenBranch = BindStmtInternal(i.ThenBranch);
+            BoundStmt? elseClause = i.ElseClause is not null ? BindStmtInternal(i.ElseClause.Stmt) : null;
             return new(condition, thenBranch, elseClause);
         }
 
@@ -256,7 +316,7 @@ namespace Wave.src.Binding.BoundNodes
 
 
             _loopStack.Push((bodyLabel, continueLabel));
-            BoundStmt boundStmt = BindStmt(stmt);
+            BoundStmt boundStmt = BindStmtInternal(stmt);
             _loopStack.Pop();
             return boundStmt;
         }
@@ -413,7 +473,7 @@ namespace Wave.src.Binding.BoundNodes
                 if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
                 {
                     string bestMatch = FindBestMatch(name, _scope.GetVariables().Select(v => v.Name));
-                    _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", _scope.TryLookupFn(name, out _) ? $"\"{name}\" is a function therefore needs to be called." : bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                     return new BoundError();
                 }
 
@@ -487,7 +547,7 @@ namespace Wave.src.Binding.BoundNodes
                 ExprNode rawArg = c.Args[i];
                 BoundExpr arg = BindExpr(rawArg);
                 args.Add(BindConversion(arg, param.Type, new(rawArg.Location.Source, rawArg.Span), false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.", null,
-                    $"{source[..rawArg.Span.Start]}{param.Type}({rawArg.Location.Text}){source[rawArg.Span.End..]}"));
+                    $"\"{source[..rawArg.Span.Start]}{param.Type}({rawArg.Location.Text}){source[rawArg.Span.End..]}\""));
             }
 
             return new BoundCall(fn, args.ToImmutable());
@@ -515,7 +575,7 @@ namespace Wave.src.Binding.BoundNodes
         private VariableSymbol DeclareVar(Token id, TypeSymbol type, bool isMut = false)
         {
             VariableSymbol variable = _fn is null ? new GlobalVariableSymbol(id.Lexeme, type, isMut) : new LocalVariableSymbol(id.Lexeme, type, isMut);
-            if (!id.IsMissing && !_scope.TryDeclareVar(variable) || _scope.TryLookupFn(variable.Name, out _))
+            if (!id.IsMissing && !_scope.TryDeclareVar(variable))
                 _diagnostics.Report(id.Location, $"\"{id.Lexeme}\" already exists.");
 
             return variable;

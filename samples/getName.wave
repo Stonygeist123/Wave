@@ -1,4 +1,0 @@
-fn getName -> string {
-	print("What's your name?")
-	ret input();
-}

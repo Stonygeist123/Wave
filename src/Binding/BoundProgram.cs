@@ -4,16 +4,20 @@ using Wave.Symbols;
 
 namespace Wave.Source.Binding
 {
-    internal class BoundProgram
+    public class BoundProgram
     {
-        public BoundProgram(BoundBlockStmt stmt, ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStmt> fnBodies)
+        public BoundProgram(BoundProgram? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStmt> functions)
         {
-            Stmt = stmt;
+            Previous = previous;
+            MainFn = mainFn;
+            ScriptFn = scriptFn;
             Diagnostics = diagnostics;
-            Functions = fnBodies;
+            Functions = functions;
         }
 
-        public BoundBlockStmt Stmt { get; }
+        public BoundProgram? Previous { get; }
+        public FunctionSymbol? MainFn { get; }
+        public FunctionSymbol? ScriptFn { get; }
         public ImmutableArray<Diagnostic> Diagnostics { get; }
         public ImmutableDictionary<FunctionSymbol, BoundBlockStmt> Functions { get; }
     }

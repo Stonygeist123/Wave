@@ -3,7 +3,7 @@ using Wave.Source.Syntax.Nodes;
 
 namespace Wave.Source.Syntax
 {
-    internal class Lexer
+    public class Lexer
     {
         private readonly SourceText _source;
         private int _position = 0;

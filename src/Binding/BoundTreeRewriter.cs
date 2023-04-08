@@ -3,7 +3,7 @@ using Wave.Source.Binding.BoundNodes;
 
 namespace Wave.Source.Binding
 {
-    internal abstract class BoundTreeRewriter
+    public abstract class BoundTreeRewriter
     {
         public virtual BoundStmt RewriteStmt(BoundStmt node) => node.Kind switch
         {

@@ -2,7 +2,7 @@
 
 namespace Wave.Source.Binding
 {
-    internal sealed class Conversion
+    public sealed class Conversion
     {
         public static Conversion Identity = new(true, true, true);
         public static Conversion Implicit = new(true, false, true);

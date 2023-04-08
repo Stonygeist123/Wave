@@ -1,1 +1,6 @@
-print("Hello, " + getName() + "!")
+fn getName -> string {
+    print("What's your name?")
+	ret input();
+}
+
+fn main print("Hello, " + getName() + "!");

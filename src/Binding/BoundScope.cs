@@ -4,7 +4,7 @@ using Wave.Symbols;
 
 namespace Wave.Source.Binding
 {
-    internal sealed class BoundScope
+    public sealed class BoundScope
     {
         private readonly Dictionary<string, VariableSymbol> _variables = new();
         private readonly Dictionary<string, FunctionSymbol> _functions = new();
@@ -81,21 +81,25 @@ namespace Wave.Source.Binding
         public BoundScope? Parent { get; }
     }
 
-    internal sealed class BoundGlobalScope
+    public sealed class BoundGlobalScope
     {
-        public BoundGlobalScope(BoundGlobalScope? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, BoundBlockStmt stmt)
+        public BoundGlobalScope(BoundGlobalScope? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, BoundBlockStmt stmt, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, ImmutableArray<Diagnostic> diagnostics)
         {
             Previous = previous;
-            Diagnostics = diagnostics;
+            MainFn = mainFn;
+            ScriptFn = scriptFn;
+            Stmt = stmt;
             Variables = variables;
             Functions = functions;
-            Stmt = stmt;
+            Diagnostics = diagnostics;
         }
 
         public BoundGlobalScope? Previous { get; }
-        public ImmutableArray<Diagnostic> Diagnostics { get; }
+        public FunctionSymbol? MainFn { get; }
+        public FunctionSymbol? ScriptFn { get; }
+        public BoundBlockStmt Stmt { get; }
         public ImmutableArray<VariableSymbol> Variables { get; }
         public ImmutableArray<FunctionSymbol> Functions { get; }
-        public BoundBlockStmt Stmt { get; }
+        public ImmutableArray<Diagnostic> Diagnostics { get; }
     }
 }

@@ -3,7 +3,7 @@ using Wave.Source.Syntax.Nodes;
 
 namespace Wave.Source.Syntax
 {
-    internal class Parser
+    public class Parser
     {
         private readonly ImmutableArray<Token> _tokens;
         private int _position = 0;

@@ -3,7 +3,7 @@ using Wave.Source.Syntax.Nodes;
 
 namespace Wave.Symbols
 {
-    internal static class SymbolPrinter
+    public static class SymbolPrinter
     {
         public static void WriteTo(this Symbol symbol, TextWriter writer)
         {

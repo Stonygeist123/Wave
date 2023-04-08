@@ -5,21 +5,21 @@ namespace Wave.Source.Binding.BoundNodes
 {
     public abstract class BoundStmt : BoundNode { }
 
-    internal sealed class BoundExpressionStmt : BoundStmt
+    public sealed class BoundExpressionStmt : BoundStmt
     {
         public BoundExpressionStmt(BoundExpr expr) => Expr = expr;
         public override BoundNodeKind Kind => BoundNodeKind.ExpressionStmt;
         public BoundExpr Expr { get; }
     }
 
-    internal sealed class BoundBlockStmt : BoundStmt
+    public sealed class BoundBlockStmt : BoundStmt
     {
         public BoundBlockStmt(ImmutableArray<BoundStmt> stmts) => Stmts = stmts;
         public override BoundNodeKind Kind => BoundNodeKind.BlockStmt;
         public ImmutableArray<BoundStmt> Stmts { get; }
     }
 
-    internal sealed class BoundVarStmt : BoundStmt
+    public sealed class BoundVarStmt : BoundStmt
     {
         public BoundVarStmt(VariableSymbol variable, BoundExpr value)
         {
@@ -32,7 +32,7 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundExpr Value { get; }
     }
 
-    internal sealed class BoundIfStmt : BoundStmt
+    public sealed class BoundIfStmt : BoundStmt
     {
         public BoundIfStmt(BoundExpr condition, BoundStmt thenBranch, BoundStmt? elseClause)
         {
@@ -47,7 +47,7 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundStmt? ElseClause { get; }
     }
 
-    internal abstract class BoundLoopStmt : BoundStmt
+    public abstract class BoundLoopStmt : BoundStmt
     {
         public BoundLoopStmt(BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
         {
@@ -64,7 +64,7 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundStmt Body { get; }
     }
 
-    internal sealed class BoundWhileStmt : BoundLoopStmt
+    public sealed class BoundWhileStmt : BoundLoopStmt
     {
         public BoundWhileStmt(BoundExpr condition, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
             : base(body, bodyLabel, breakLabel, continueLabel) => Condition = condition;
@@ -72,7 +72,7 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundExpr Condition { get; }
     }
 
-    internal sealed class BoundDoWhileStmt : BoundLoopStmt
+    public sealed class BoundDoWhileStmt : BoundLoopStmt
     {
         public BoundDoWhileStmt(BoundStmt body, BoundExpr condition, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
             : base(body, bodyLabel, breakLabel, continueLabel) => Condition = condition;
@@ -81,7 +81,7 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundExpr Condition { get; }
     }
 
-    internal sealed class BoundForStmt : BoundLoopStmt
+    public sealed class BoundForStmt : BoundLoopStmt
     {
         public BoundForStmt(VariableSymbol variable, BoundExpr lowerBound, BoundExpr upperBound, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
             : base(body, bodyLabel, breakLabel, continueLabel)
@@ -98,21 +98,21 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundExpr UpperBound { get; }
     }
 
-    internal sealed class BoundLabelStmt : BoundStmt
+    public sealed class BoundLabelStmt : BoundStmt
     {
         public BoundLabelStmt(LabelSymbol label) => Label = label;
         public override BoundNodeKind Kind => BoundNodeKind.LabelStmt;
         public LabelSymbol Label { get; }
     }
 
-    internal sealed class BoundGotoStmt : BoundStmt
+    public sealed class BoundGotoStmt : BoundStmt
     {
         public BoundGotoStmt(LabelSymbol label) => Label = label;
         public override BoundNodeKind Kind => BoundNodeKind.GotoStmt;
         public LabelSymbol Label { get; }
     }
 
-    internal sealed class BoundCondGotoStmt : BoundStmt
+    public sealed class BoundCondGotoStmt : BoundStmt
     {
         public BoundCondGotoStmt(LabelSymbol label, BoundExpr condition, bool jumpIfTrue = true)
         {
@@ -127,14 +127,14 @@ namespace Wave.Source.Binding.BoundNodes
         public bool JumpIfTrue { get; }
     }
 
-    internal sealed class BoundRetStmt : BoundStmt
+    public sealed class BoundRetStmt : BoundStmt
     {
         public BoundRetStmt(BoundExpr? value) => Value = value;
         public override BoundNodeKind Kind => BoundNodeKind.RetStmt;
         public BoundExpr? Value { get; }
     }
 
-    internal sealed class BoundErrorStmt : BoundStmt
+    public sealed class BoundErrorStmt : BoundStmt
     {
         public BoundErrorStmt() { }
         public override BoundNodeKind Kind => BoundNodeKind.ErrorStmt;

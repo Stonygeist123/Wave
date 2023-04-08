@@ -6,7 +6,7 @@ using Wave.Symbols;
 
 namespace Wave.Lowering
 {
-    internal sealed class Lowerer : BoundTreeRewriter
+    public sealed class Lowerer : BoundTreeRewriter
     {
         private int _labelCount = 0;
         private LabelSymbol GenerateLabel() => new($"Label_{++_labelCount}");

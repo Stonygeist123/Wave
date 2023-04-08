@@ -4,14 +4,14 @@ using System.Collections.Specialized;
 using System.Reflection;
 using System.Text;
 using Wave.IO;
-using Wave.Source;
+using Wave.Source.Compilation;
 using Wave.Source.Syntax;
 using Wave.Source.Syntax.Nodes;
 using Wave.Symbols;
 
 namespace Wave.Repl
 {
-    internal abstract class Repl
+    public abstract class Repl
     {
         private readonly List<MetaCommand> _metaCmds = new();
         private readonly List<string> _history = new();
@@ -510,13 +510,13 @@ namespace Wave.Repl
         }
     }
 
-    internal sealed class WaveRepl : Repl
+    public sealed class WaveRepl : Repl
     {
         private Compilation? _previous = null;
         private bool _showTree = false, _showProgram = false;
         private bool _loadingSubmission = false;
         private readonly Dictionary<VariableSymbol, object?> _vars = new();
-        private static readonly Compilation emptyCompilation = new();
+        private static readonly Compilation emptyCompilation = new(true, null);
         public WaveRepl() => LoadSubmissions();
 
         protected override void RenderLine(string line)
@@ -572,7 +572,7 @@ namespace Wave.Repl
             string text = File.ReadAllText(path);
             EvaluateSubmission(text);
             SyntaxTree syntaxTree = SyntaxTree.Load(path);
-            _previous = _previous is null ? new(syntaxTree) : _previous.ContinueWith(syntaxTree);
+            _previous = Compilation.CreateScript(_previous, syntaxTree);
         }
 
         [MetaCommand("ls", "Lists all symbols")]
@@ -605,10 +605,7 @@ namespace Wave.Repl
         protected override void EvaluateSubmission(string text)
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(text, "<stdin>"));
-            Compilation compilation = _previous is null
-                            ? new(syntaxTree)
-                            : _previous.ContinueWith(syntaxTree);
-
+            Compilation compilation = Compilation.CreateScript(_previous, syntaxTree);
             if (_showTree)
             {
                 syntaxTree.Root.WriteTo(Console.Out);
@@ -641,13 +638,14 @@ namespace Wave.Repl
                 Console.Out.WriteDiagnostics(result.Diagnostics);
         }
 
-        private static string GetSubmissionsDir()
+        private static string GetSubmissionsDir() => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Wave", "Submissions");
+        private static void ClearSubmissions()
         {
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(localAppData, "Wave", "Submissions");
+            string dir = GetSubmissionsDir();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
         }
 
-        private static void ClearSubmissions() => Directory.Delete(GetSubmissionsDir(), true);
         private void LoadSubmissions()
         {
             string submissionsDir = GetSubmissionsDir();

@@ -95,7 +95,7 @@ namespace Wave
         public string FileName { get; }
     }
 
-    public readonly struct TextLocation
+    public sealed class TextLocation
     {
         public TextLocation(SourceText source, TextSpan span)
         {

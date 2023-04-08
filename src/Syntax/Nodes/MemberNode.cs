@@ -4,6 +4,7 @@
     {
         public MemberNode(SyntaxTree syntaxTree) : base(syntaxTree) { }
     }
+
     public sealed class GlobalStmt : MemberNode
     {
         public GlobalStmt(SyntaxTree syntaxTree, StmtNode stmt)
@@ -59,7 +60,7 @@
         public Token Name { get; }
         public ParameterList? Parameters { get; }
         public TypeClause? TypeClause { get; }
-        public StmtNode Body { get; internal set; }
+        public StmtNode Body { get; }
         public override SyntaxKind Kind => SyntaxKind.FnDecl;
     }
 }

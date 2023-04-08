@@ -25,7 +25,7 @@ namespace Wave.Source.Syntax
             }
 
             _diagnostics.AddRange(lexer.Diagnostics);
-            _tokens = tokens.Where(t => t.Kind != SyntaxKind.Space).ToImmutableArray();
+            _tokens = tokens.Where(t => t.Kind != SyntaxKind.Space && t.Kind != SyntaxKind.Comment).ToImmutableArray();
             _syntaxTree = syntaxTree;
         }
 

@@ -92,6 +92,7 @@ namespace Wave.Source.Syntax.Nodes
     {
         // Token
         Space,
+        Comment,
         Plus,
         Minus,
         Star,

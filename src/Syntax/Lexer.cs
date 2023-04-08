@@ -59,7 +59,15 @@ namespace Wave.Source.Syntax
                     break;
                 case '/':
                     ++_position;
-                    _kind = SyntaxKind.Slash;
+                    if (Current == '/')
+                    {
+                        while (Current != '\n' && Current != '\0')
+                            ++_position;
+
+                        _kind = SyntaxKind.Comment;
+                    }
+                    else
+                        _kind = SyntaxKind.Slash;
                     break;
                 case '%':
                     ++_position;

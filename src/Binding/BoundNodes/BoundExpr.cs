@@ -135,7 +135,7 @@ namespace Wave.Source.Binding.BoundNodes
 
     public sealed class BoundIndexing : BoundExpr
     {
-        public override TypeSymbol Type => Array.Type;
+        public override TypeSymbol Type => new(Array.Type.Name, false);
         public override BoundNodeKind Kind => BoundNodeKind.IndexingExpr;
         public BoundExpr Array { get; }
         public BoundExpr Index { get; }
@@ -154,7 +154,7 @@ namespace Wave.Source.Binding.BoundNodes
 
         public BoundConversion(TypeSymbol type, BoundExpr expr)
         {
-            Type = type;
+            Type = new(type.Name, false);
             Expr = expr;
         }
     }

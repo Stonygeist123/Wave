@@ -22,6 +22,13 @@ namespace Wave.Source.Binding
 
         public static Conversion Classify(TypeSymbol from, TypeSymbol to)
         {
+            if (from.IsArray)
+            {
+                if (to == TypeSymbol.String)
+                    return Explicit;
+                return from == to && to.IsArray ? Identity : None;
+            }
+
             if (from == to)
                 return Identity;
 
@@ -49,11 +56,6 @@ namespace Wave.Source.Binding
                 if (to == TypeSymbol.Int)
                     return Explicit;
                 else if (to == TypeSymbol.Float)
-                    return Explicit;
-            }
-            else if (from.IsArray)
-            {
-                if (to == TypeSymbol.String)
                     return Explicit;
             }
 

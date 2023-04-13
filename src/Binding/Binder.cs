@@ -608,9 +608,9 @@ namespace Wave.src.Binding.BoundNodes
         private BoundExpr BindConversion(ExprNode expr, TypeSymbol type, bool allowExplicit = false, bool allowArray = true, string? errorImplicit = null, string? errorExists = null) => BindConversion(BindExpr(expr), type, expr.Location, allowExplicit, allowArray, errorImplicit, errorExists);
         private BoundExpr BindConversion(BoundExpr expr, TypeSymbol type, TextLocation location, bool allowExplicit = false, bool allowArray = false, string? errorImplicit = null, string? errorExists = null, string? errorImplSuggestion = null)
         {
-            if (!allowArray && (type.IsArray && !expr.Type.IsArray || expr.Type.IsArray && !type.IsArray))
+            if (!allowArray && expr.Type.IsArray && !type.IsArray)
             {
-                _diagnostics.Report(location, $"No conversion {(type.IsArray ? "from" : "to")} non-array type {(type.IsArray ? "to" : "from")} array type.");
+                _diagnostics.Report(location, $"No conversion from non-array type to array type.");
                 return new BoundError();
             }
 
@@ -626,7 +626,9 @@ namespace Wave.src.Binding.BoundNodes
                 _diagnostics.Report(location, errorImplicit ?? $"No implicit conversion from \"{expr.Type}\" to \"{type}\" possible; though an explicit cast is.", errorImplSuggestion ?? $"\"{type.Name}({location.Text})\".");
 
             if (conversion.IsIdentity)
+            {
                 return expr;
+            }
 
             return new BoundConversion(type, expr);
         }

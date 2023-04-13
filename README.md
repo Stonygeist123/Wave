@@ -14,7 +14,7 @@ Examples:
 4e5
 20e-4
 
-Genral:
+General:
 [<1-9>[.<1-9>] | .<1-9>][e[[-]1-9]>]
 ```
 
@@ -24,7 +24,7 @@ Examples:
 (3)
 (-3 - 4)
 
-Genral:
+General:
 (<expr>)
 ```
 
@@ -35,7 +35,7 @@ Examples:
 -(1 + 2)
 !(3 != 2)
 
-Genral:
+General:
 [
 	+	|
 	-	|
@@ -51,7 +51,7 @@ Examples:
 -5 * 4e2
 true && 1 == 1
 
-Genral:
+General:
 <expr> [
 	+	|
 	-	|
@@ -75,7 +75,7 @@ Examples:
 abc
 t_e_s_t
 
-Genral:
+General:
 <[a-zA-Z_]>[a-zA-Z_1-9]
 ```
 
@@ -86,7 +86,7 @@ Examples:
 -5 * 4e2
 true && 1 == 1
 
-Genral:
+General:
 <id> = <expr>
 ```
 
@@ -96,8 +96,8 @@ Examples:
 print("Hello, World")
 var x = input();
 
-Genral:
-<id>([<expr>[,]...])
+General:
+<id>([<expr>[, ...]])
 ```
 
 #### Type-cast (cast)
@@ -105,8 +105,31 @@ Genral:
 Examples:
 var mut x = float(input());
 
-Genral:
+General:
 <type>(<expr>)
+```
+
+#### Array (array)
+```
+Examples:
+var x: int[] = [-4, 1];
+print(string([<string> "abc", "test"]));
+
+General:
+[[<type>] <expr>[, ...]]
+
+Note:
+The type annotation is obliged if no elements were input at the beginning.
+```
+
+#### Indexing (index)
+```
+Examples:
+var x: int[] = [-4, 1];
+var y: int = x[0];
+
+General:
+<expr>[<expr>]
 ```
 
 ### Statements (stmt)
@@ -116,7 +139,7 @@ Examples:
 (90 / 4 + 5) ** 2;
 a = 50;
 
-Genral:
+General:
 <expr>
 ```
 
@@ -128,7 +151,7 @@ Examples:
 	x ** 2;
 }
 
-Genral:
+General:
 {
 	<...stmt>
 }
@@ -140,7 +163,7 @@ Examples:
 var x = 10;
 var mut y = x * 10 / 3;
 
-Genral:
+General:
 var [mut] <id> = <expr>;
 ```
 
@@ -155,7 +178,7 @@ if y == z
 else
 	x = z;
 
-Genral:
+General:
 if <expr> <stmt> [else <stmt>]
 ```
 
@@ -166,7 +189,7 @@ var mut x = 10;
 while x > 0
 	x = x - 1;
 
-Genral:
+General:
 while <expr> <stmt>
 ```
 
@@ -179,7 +202,7 @@ var mut y = 1;
 for i = 1 -> x
 	y = y * i;
 
-Genral:
+General:
 for <id> = <expr> -> <expr> <stmt>
 ```
 
@@ -188,7 +211,7 @@ for <id> = <expr> -> <expr> <stmt>
 Examples:
 break;
 
-Genral:
+General:
 break;
 ```
 
@@ -197,7 +220,7 @@ break;
 Examples:
 continue;
 
-Genral:
+General:
 continue;
 ```
 
@@ -208,6 +231,6 @@ fn x -> int {
 	ret 42;
 }
 
-Genral:
+General:
 ret [<expr>];
 ```

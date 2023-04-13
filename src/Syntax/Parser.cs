@@ -132,13 +132,14 @@ namespace Wave.Source.Syntax
             return new(_syntaxTree, keyword, mutKw, name, typeClause, eqToken, value, Match(SyntaxKind.Semicolon));
         }
 
-        private TypeClause ParseTypeClause(SyntaxKind sign) => new(_syntaxTree, Match(sign), Match(SyntaxKind.Identifier));
-        private TypeClause? ParseOptTypeClause(SyntaxKind sign)
+        private TypeClause? ParseOptTypeClause(SyntaxKind sign) => Current.Kind != sign ? null : ParseTypeClause(sign);
+        private TypeClause ParseTypeClause(SyntaxKind sign)
         {
-            if (Current.Kind != sign)
-                return null;
-
-            return ParseTypeClause(sign);
+            Token s = Match(sign);
+            Token id = Match(SyntaxKind.Identifier);
+            if (Current.Kind == SyntaxKind.LBracket)
+                return new(_syntaxTree, s, id, Advance(), Match(SyntaxKind.RBracket));
+            return new(_syntaxTree, s, id);
         }
 
         private IfStmt ParseIfStmt()
@@ -250,18 +251,53 @@ namespace Wave.Source.Syntax
             return left;
         }
 
-
         private ExprNode ParsePrimaryExpr()
         {
-            return Current.Kind switch
+            ExprNode expr = Current.Kind switch
             {
                 SyntaxKind.LParen => new GroupingExpr(_syntaxTree, Advance(), ParseExpr(), Match(SyntaxKind.RParen)),
+                SyntaxKind.LBracket => ParseArrayExpr(),
                 SyntaxKind.True or SyntaxKind.False => new LiteralExpr(_syntaxTree, Current, Advance().Kind == SyntaxKind.True),
                 SyntaxKind.Int => new LiteralExpr(_syntaxTree, Match(SyntaxKind.Int)),
                 SyntaxKind.Float => new LiteralExpr(_syntaxTree, Advance()),
                 SyntaxKind.String => new LiteralExpr(_syntaxTree, Advance()),
-                SyntaxKind.Identifier or _ => ParseIdentifier(),
+                SyntaxKind.Identifier => ParseIdentifier(),
+                _ => ExpectedExpressionError()
             };
+
+            if (Current.Kind == SyntaxKind.LBracket)
+                expr = new IndexingExpr(_syntaxTree, expr, Advance(), ParseExpr(), Match(SyntaxKind.RBracket));
+            return expr;
+        }
+
+        private ArrayExpr ParseArrayExpr()
+        {
+            Token lBracket = Advance();
+            ImmutableArray<Node>.Builder elements = ImmutableArray.CreateBuilder<Node>();
+            Token? lessToken = null, type = null, greaterToken = null;
+
+            if (Current.Kind == SyntaxKind.Less)
+            {
+                lessToken = Advance();
+                type = Match(SyntaxKind.Identifier);
+                greaterToken = Match(SyntaxKind.Greater);
+            }
+
+            bool parseNextArg = true;
+            while (parseNextArg && Current.Kind != SyntaxKind.RBracket && Current.Kind != SyntaxKind.Eof)
+            {
+                elements.Add(ParseExpr());
+                if (Current.Kind == SyntaxKind.Comma)
+                    elements.Add(Match(SyntaxKind.Comma));
+                else
+                    parseNextArg = false;
+            }
+
+            Token rBracket = Match(SyntaxKind.RBracket);
+            if (!elements.Any() && type is null)
+                _diagnostics.Report(new(lBracket.Location.Source, new(lBracket.Span.Start, 2)), $"An empty array need a type.", $"\"[<type>]\"");
+
+            return new ArrayExpr(_syntaxTree, lBracket, lessToken, type, greaterToken, new SeparatedList<ExprNode>(elements.ToImmutable()), rBracket);
         }
 
         private ExprNode ParseIdentifier()
@@ -286,6 +322,12 @@ namespace Wave.Source.Syntax
             }
 
             return new NameExpr(_syntaxTree, Match(SyntaxKind.Identifier));
+        }
+
+        private ExprNode ExpectedExpressionError(Token? token = null)
+        {
+            _diagnostics.Report((token ?? Current).Location, $"Expected expression.");
+            return new LiteralExpr(_syntaxTree, token ?? Current);
         }
 
         private Token Match(SyntaxKind kind, string? msg = null)

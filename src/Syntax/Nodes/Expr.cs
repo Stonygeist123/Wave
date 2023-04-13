@@ -103,4 +103,42 @@
             RParen = rParen;
         }
     }
+
+    public sealed class ArrayExpr : ExprNode
+    {
+        public override SyntaxKind Kind => SyntaxKind.CallExpr;
+        public Token? LessToken { get; }
+        public Token? Type { get; }
+        public Token? GreaterToken { get; }
+        public Token LBracket { get; }
+        public SeparatedList<ExprNode> Elements { get; }
+        public Token RBracket { get; }
+        public ArrayExpr(SyntaxTree syntaxTree, Token lBracket, Token? lessToken, Token? type, Token? greaterToken, SeparatedList<ExprNode> elements, Token rBracket)
+            : base(syntaxTree)
+        {
+            LessToken = lessToken;
+            Type = type;
+            GreaterToken = greaterToken;
+            LBracket = lBracket;
+            Elements = elements;
+            RBracket = rBracket;
+        }
+    }
+
+    public sealed class IndexingExpr : ExprNode
+    {
+        public override SyntaxKind Kind => SyntaxKind.CallExpr;
+        public ExprNode Array { get; }
+        public Token LBracket { get; }
+        public ExprNode Index { get; }
+        public Token RBracket { get; }
+        public IndexingExpr(SyntaxTree syntaxTree, ExprNode array, Token lBracket, ExprNode index, Token rBracket)
+            : base(syntaxTree)
+        {
+            Array = array;
+            LBracket = lBracket;
+            Index = index;
+            RBracket = rBracket;
+        }
+    }
 }

@@ -51,6 +51,11 @@ namespace Wave.Source.Binding
                 else if (to == TypeSymbol.Float)
                     return Explicit;
             }
+            else if (from.IsArray)
+            {
+                if (to == TypeSymbol.String)
+                    return Explicit;
+            }
 
             return None;
         }

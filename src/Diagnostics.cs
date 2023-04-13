@@ -21,7 +21,6 @@ namespace Wave
     {
         private readonly List<Diagnostic> _diagnostics = new();
         public void Report(TextLocation location, string message, string? suggestion = null) => _diagnostics.Add(new(location, message, suggestion));
-        public void ReportC(string message) => _diagnostics.Add(new(default, message));
         public IEnumerator<Diagnostic> GetEnumerator() => _diagnostics.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         public void AddRange(DiagnosticBag diagnostics) => _diagnostics.AddRange(diagnostics);

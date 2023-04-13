@@ -81,6 +81,14 @@ namespace Wave.Source.Syntax
                     ++_position;
                     _kind = SyntaxKind.RParen;
                     break;
+                case '[':
+                    ++_position;
+                    _kind = SyntaxKind.LBracket;
+                    break;
+                case ']':
+                    ++_position;
+                    _kind = SyntaxKind.RBracket;
+                    break;
                 case '{':
                     ++_position;
                     _kind = SyntaxKind.LBrace;

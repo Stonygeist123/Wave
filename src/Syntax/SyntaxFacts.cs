@@ -51,6 +51,8 @@ namespace Wave.Source.Syntax
             SyntaxKind.Mod => "%",
             SyntaxKind.LParen => "(",
             SyntaxKind.RParen => ")",
+            SyntaxKind.LBracket => "[",
+            SyntaxKind.RBracket => "]",
             SyntaxKind.LBrace => "{",
             SyntaxKind.RBrace => "}",
             SyntaxKind.Bang => "!",

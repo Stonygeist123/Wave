@@ -85,18 +85,6 @@ namespace Wave.Source.Compilation
                 return new(diagnostics, null);
 
             BoundProgram program = GetProgram()!;
-            /* string appPath = Environment.GetCommandLineArgs()[0];
-            string? appDirectory = Path.GetDirectoryName(appPath);
-            string cfgPath = Path.Combine(appDirectory ?? "", "cfg.dot");
-
-            BoundBlockStmt cfgStmt = !program.Stmt.Stmts.Any() && program.Functions.Any()
-                            ? program.Functions.Last().Value
-                            : program.Stmt;
-
-            ControlFlowGraph cfg = ControlFlowGraph.CreateGraph(cfgStmt);
-            using (StreamWriter writer = new(cfgPath))
-                cfg.WriteTo(writer); */
-
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics, null);
 

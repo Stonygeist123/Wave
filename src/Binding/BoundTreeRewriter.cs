@@ -31,6 +31,8 @@ namespace Wave.Source.Binding
                 BoundNodeKind.NameExpr => RewriteNameExpr((BoundName)node),
                 BoundNodeKind.AssignmentExpr => RewriteAssignmentExpr((BoundAssignment)node),
                 BoundNodeKind.CallExpr => RewriteCallExpr((BoundCall)node),
+                BoundNodeKind.ArrayExpr => RewriteArrayExpr((BoundArray)node),
+                BoundNodeKind.IndexingExpr => RewriteIndexingExpr((BoundIndexing)node),
                 BoundNodeKind.ConversionExpr => RewriteConversionExpr((BoundConversion)node),
                 BoundNodeKind.ErrorExpr => RewriteErrorExpr((BoundError)node),
                 _ => throw new Exception($"Unexpected node to lower: \"{node.Kind}\"."),
@@ -201,6 +203,43 @@ namespace Wave.Source.Binding
                 return node;
 
             return new BoundCall(node.Function, builder.MoveToImmutable());
+        }
+
+        protected virtual BoundExpr RewriteArrayExpr(BoundArray node)
+        {
+            ImmutableArray<BoundExpr>.Builder? builder = null;
+            for (int i = 0; i < node.Elements.Length; i++)
+            {
+                BoundExpr stmt = node.Elements[i];
+                BoundExpr oldExpr = stmt;
+                BoundExpr newExpr = RewriteExpr(oldExpr);
+                if (newExpr != oldExpr)
+                {
+                    if (builder is null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpr>(node.Elements.Length);
+                        for (int j = 0; j < i; ++j)
+                            builder.Add(node.Elements[j]);
+                    }
+                }
+
+                builder?.Add(newExpr);
+            }
+
+            if (builder is null)
+                return node;
+
+            return new BoundArray(builder.MoveToImmutable(), node.Type);
+        }
+
+        protected virtual BoundExpr RewriteIndexingExpr(BoundIndexing node)
+        {
+            BoundExpr array = RewriteExpr(node.Array);
+            BoundExpr index = RewriteExpr(node.Index);
+            if (index == node.Index && array == node.Array)
+                return node;
+
+            return new BoundIndexing(array, index);
         }
 
         private BoundExpr RewriteConversionExpr(BoundConversion node)

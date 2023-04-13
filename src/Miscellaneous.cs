@@ -132,4 +132,27 @@ namespace Wave
         public TextSpan SpanWithLineBreak => new(Start, LengthWithLineBreak);
         public override string ToString() => Source.ToString(Span);
     }
+
+    public static class Extensions
+    {
+        public static string? Stringify(this object? v)
+        {
+            if (v is Array arr)
+            {
+                string res = "[";
+                if (arr.Length > 0)
+                    res += Stringify(((object?[])arr).First()) ?? "";
+
+                for (int i = 1; i < arr.Length; ++i)
+                {
+                    object? el = ((object?[])arr)[i];
+                    res += ", " + Stringify(el);
+                }
+
+                return res + "]";
+            }
+
+            return Convert.ToString(v);
+        }
+    }
 }

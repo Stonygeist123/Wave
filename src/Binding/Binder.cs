@@ -159,7 +159,7 @@ namespace Wave.src.Binding.BoundNodes
                     fnType = ((BoundRetStmt)branch.To.Stmts.First(s => s.Kind == BoundNodeKind.RetStmt)).Value!.Type;
             }
 
-            if (boundExpr is not null && !Conversion.Classify(boundExpr.Type, fnType).IsImplicit)
+            if (boundExpr is not null && (!Conversion.Classify(boundExpr.Type, fnType).IsImplicit || (fnType.IsArray && !boundExpr.Type.IsArray)))
                 _diagnostics.Report(decl!.Body.Location, $"Expected a value with type of \"{fnType}\" - got \"{boundExpr.Type}\".");
 
             Token name = decl.Name;
@@ -265,7 +265,7 @@ namespace Wave.src.Binding.BoundNodes
                 return null;
 
             if (LookupType(typeClause.Id.Lexeme) is TypeSymbol t)
-                return t;
+                return typeClause.LBracket is null ? t : new(t.Name, true);
 
             _diagnostics.Report(typeClause.Id.Location, $"Undefined type \"{typeClause.Id.Lexeme}\".");
             return null;
@@ -360,7 +360,7 @@ namespace Wave.src.Binding.BoundNodes
                     if (value is null)
                         _diagnostics.Report(r.Location, $"Expected a value of type \"{_fn.Type}\" to be returned - got none.");
                     else
-                        value = BindConversion(r.Value!, _fn.Type, false, $"Return type must match the type of function \"{_fn.Name}\"; expected \"{_fn.Type}\" - got \"{value.Type}\".");
+                        value = BindConversion(r.Value!, _fn.Type, false, false, $"Return type must match the type of function \"{_fn.Name}\"; expected \"{_fn.Type}\" - got \"{value.Type}\".");
                 }
             }
 
@@ -391,6 +391,8 @@ namespace Wave.src.Binding.BoundNodes
                 NameExpr n => BindNameExpr(n),
                 AssignmentExpr a => BindAssignmentExpr(a),
                 CallExpr c => BindCallExpr(c),
+                ArrayExpr a => BindArrayExpr(a),
+                IndexingExpr a => BindIndexingExpr(a),
                 _ => throw new Exception("Unexpected syntax."),
             };
         }
@@ -500,7 +502,7 @@ namespace Wave.src.Binding.BoundNodes
         private BoundExpr BindCallExpr(CallExpr c)
         {
             if (c.Args.Count == 1 && LookupType(c.Callee.Lexeme) is TypeSymbol type)
-                return BindConversion(c.Args[0], type, true);
+                return BindConversion(c.Args[0], type, true, true);
 
             string name = c.Callee.Lexeme;
             if (!_scope.TryLookupFn(name, out FunctionSymbol? fn) && fn is null)
@@ -546,16 +548,72 @@ namespace Wave.src.Binding.BoundNodes
                 ParameterSymbol param = fn.Parameters[i];
                 ExprNode rawArg = c.Args[i];
                 BoundExpr arg = BindExpr(rawArg);
-                args.Add(BindConversion(arg, param.Type, new(rawArg.Location.Source, rawArg.Span), false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.", null,
+                args.Add(BindConversion(arg, param.Type, new(rawArg.Location.Source, rawArg.Span), false, false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.", null,
                     $"\"{source[..rawArg.Span.Start]}{param.Type}({rawArg.Location.Text}){source[rawArg.Span.End..]}\""));
             }
 
             return new BoundCall(fn, args.ToImmutable());
         }
 
-        private BoundExpr BindConversion(ExprNode expr, TypeSymbol type, bool allowExplicit = false, string? errorImplicit = null, string? errorExists = null) => BindConversion(BindExpr(expr), type, expr.Location, allowExplicit, errorImplicit, errorExists);
-        private BoundExpr BindConversion(BoundExpr expr, TypeSymbol type, TextLocation location, bool allowExplicit = false, string? errorImplicit = null, string? errorExists = null, string? errorImplSuggestion = null)
+        private BoundExpr BindArrayExpr(ArrayExpr a)
         {
+            if (a.Elements.Any())
+            {
+                ImmutableArray<BoundExpr>.Builder elements = ImmutableArray.CreateBuilder<BoundExpr>();
+                foreach (ExprNode el in a.Elements)
+                    elements.Add(BindExpr(el));
+
+                TypeSymbol type;
+                if (a.Type is null)
+                {
+                    type = elements.First().Type;
+                    for (int i = 0; i < elements.Count; ++i)
+                    {
+                        BoundExpr el = elements[i];
+                        TextLocation location = a.Elements[i].Location;
+                        elements[i] = BindConversion(el, type, location, false, false, $"An array cannot have multiple types.");
+                    }
+                }
+                else
+                {
+                    type = LookupType(a.Type.Lexeme) ?? TypeSymbol.Unknown;
+                    for (int i = 0; i < elements.Count; ++i)
+                    {
+                        BoundExpr el = elements[i];
+                        TextLocation location = a.Elements[i].Location;
+                        elements[i] = BindConversion(el, type, location);
+                    }
+                }
+
+                return new BoundArray(elements.ToImmutable(), new(type.Name, true));
+            }
+            else if (a.Type is null)
+                return new BoundError();
+            return new BoundArray(ImmutableArray<BoundExpr>.Empty, new((LookupType(a.Type!.Lexeme) ?? TypeSymbol.Unknown).Name, true));
+        }
+
+        private BoundExpr BindIndexingExpr(IndexingExpr a)
+        {
+            BoundExpr array = BindExpr(a.Array);
+            BoundExpr index = BindExpr(a.Index, TypeSymbol.Int);
+            if (!array.Type.IsArray)
+            {
+                _diagnostics.Report(a.Array.Location, $"Expected array - got \"{array.Type}\".");
+                return new BoundError();
+            }
+
+            return new BoundIndexing(array, index);
+        }
+
+        private BoundExpr BindConversion(ExprNode expr, TypeSymbol type, bool allowExplicit = false, bool allowArray = true, string? errorImplicit = null, string? errorExists = null) => BindConversion(BindExpr(expr), type, expr.Location, allowExplicit, allowArray, errorImplicit, errorExists);
+        private BoundExpr BindConversion(BoundExpr expr, TypeSymbol type, TextLocation location, bool allowExplicit = false, bool allowArray = false, string? errorImplicit = null, string? errorExists = null, string? errorImplSuggestion = null)
+        {
+            if (!allowArray && (type.IsArray && !expr.Type.IsArray || expr.Type.IsArray && !type.IsArray))
+            {
+                _diagnostics.Report(location, $"No conversion {(type.IsArray ? "from" : "to")} non-array type {(type.IsArray ? "to" : "from")} array type.");
+                return new BoundError();
+            }
+
             Conversion conversion = Conversion.Classify(expr.Type, type);
             if (!conversion.Exists)
             {
@@ -569,6 +627,7 @@ namespace Wave.src.Binding.BoundNodes
 
             if (conversion.IsIdentity)
                 return expr;
+
             return new BoundConversion(type, expr);
         }
 

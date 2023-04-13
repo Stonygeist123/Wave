@@ -5,11 +5,15 @@
         public override SyntaxKind Kind => SyntaxKind.TypeClause;
         public Token Sign { get; }
         public Token Id { get; }
-        public TypeClause(SyntaxTree syntaxTree, Token sign, Token id)
+        public Token? LBracket { get; }
+        public Token? RBracket { get; }
+        public TypeClause(SyntaxTree syntaxTree, Token sign, Token id, Token? lBracket = null, Token? rBracket = null)
             : base(syntaxTree)
         {
             Sign = sign;
             Id = id;
+            LBracket = lBracket;
+            RBracket = rBracket;
         }
     }
 }

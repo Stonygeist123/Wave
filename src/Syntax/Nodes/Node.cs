@@ -105,6 +105,8 @@ namespace Wave.Source.Syntax.Nodes
         Inv,
         LParen,
         RParen,
+        LBracket,
+        RBracket,
         LBrace,
         RBrace,
         Bang,

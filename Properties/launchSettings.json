@@ -1,8 +1,7 @@
 {
   "profiles": {
     "Wave": {
-      "commandName": "Project",
-      "commandLineArgs": "C:\\Users\\Yunus\\source\\repos\\Wave\\samples\\hello.wave"
+      "commandName": "Project"
     }
   }
 }

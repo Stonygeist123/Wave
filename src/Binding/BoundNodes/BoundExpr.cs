@@ -121,6 +121,31 @@ namespace Wave.Source.Binding.BoundNodes
         }
     }
 
+    public sealed class BoundArray : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.ArrayExpr;
+        public ImmutableArray<BoundExpr> Elements { get; }
+        public BoundArray(ImmutableArray<BoundExpr> elements, TypeSymbol type)
+        {
+            Elements = elements;
+            Type = type;
+        }
+    }
+
+    public sealed class BoundIndexing : BoundExpr
+    {
+        public override TypeSymbol Type => Array.Type;
+        public override BoundNodeKind Kind => BoundNodeKind.IndexingExpr;
+        public BoundExpr Array { get; }
+        public BoundExpr Index { get; }
+        public BoundIndexing(BoundExpr array, BoundExpr index)
+        {
+            Array = array;
+            Index = index;
+        }
+    }
+
     public sealed class BoundConversion : BoundExpr
     {
         public override TypeSymbol Type { get; }

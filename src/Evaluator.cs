@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Globalization;
+using Wave.IO;
 using Wave.Source.Binding;
 using Wave.Source.Binding.BoundNodes;
 using Wave.Symbols;
@@ -38,6 +39,7 @@ namespace Wave
             FunctionSymbol? fn = _program.MainFn ?? _program.ScriptFn;
             if (fn is null)
                 return null;
+
             return EvaluateStmt(_functions[fn]);
         }
 
@@ -91,9 +93,7 @@ namespace Wave
                         break;
                     }
                     case BoundRetStmt r:
-                    {
                         return _lastValue = r.Value is null ? null : EvaluateExpr(r.Value);
-                    }
                 }
             }
 
@@ -287,23 +287,53 @@ namespace Wave
 
                     throw new Exception($"Unexpected function \"{c.Function.Name}\"");
                 }
+                case BoundArray a:
+                    return a.Elements.Select(EvaluateExpr).ToArray();
+                case BoundIndexing i:
+                    int index = (int)EvaluateExpr(i.Index)!;
+                    try
+                    {
+                        return EvaluateExpr(i.Array) is not object?[] array ? null : array[index];
+                    }
+                    catch (IndexOutOfRangeException)
+                    {
+                        RuntimeException($"Index Out Of Range: An element with the index \"{index}\" does not exist that array.");
+                        break;
+                    }
                 case BoundConversion c:
                 {
-                    object? v = EvaluateExpr(c.Expr);
-                    if (c.Type == TypeSymbol.Bool)
-                        return Convert.ToBoolean(v);
-                    else if (c.Type == TypeSymbol.Int)
-                        return Convert.ToInt32(v);
-                    else if (c.Type == TypeSymbol.Float)
-                        return Convert.ToDouble(v, CultureInfo.InvariantCulture);
-                    else if (c.Type == TypeSymbol.String)
-                        return Convert.ToString(v);
-                    else
-                        throw new Exception($"Unexpected type \"{c.Type}\".");
+                    object v = EvaluateExpr(c.Expr)!;
+                    try
+                    {
+                        if (c.Type == TypeSymbol.Bool)
+                            return Convert.ToBoolean(v);
+                        else if (c.Type == TypeSymbol.Int)
+                            return Convert.ToInt32(v);
+                        else if (c.Type == TypeSymbol.Float)
+                            return Convert.ToDouble(v, CultureInfo.InvariantCulture);
+                        else if (c.Type == TypeSymbol.String)
+                            return v.Stringify();
+                        else
+                            throw new Exception($"Unexpected type \"{c.Type}\".");
+                    }
+                    catch (InvalidCastException)
+                    {
+                        RuntimeException($"Invalid Cast: Could not cast \"{v.Stringify}\" to a type of \"{c.Type}\".");
+                        break;
+                    }
                 }
             }
 
             throw new Exception($"Unexpected expression.");
+        }
+
+        private static void RuntimeException(string message)
+        {
+            Console.Out.SetForeground(ConsoleColor.DarkRed);
+            Console.Out.WriteLine(message);
+            Console.Out.ResetColor();
+            Environment.Exit(1);
+            throw new();
         }
 
         private static new bool Equals(object left, object right)
@@ -312,6 +342,22 @@ namespace Wave
                 return false;
 
             return left.Equals(right);
+        }
+    }
+
+    public class RuntimeException : Exception
+    {
+        public RuntimeException(string title, string message, TextLocation location) : base(message)
+        {
+            Title = title;
+            Location = location;
+        }
+
+        public string Title { get; }
+        public TextLocation Location { get; }
+        public void Print()
+        {
+            Console.Out.WriteLine($"{Location.FileName}:{Location.StartLine}{Location.Span.Start}\n{Title}: {Message}");
         }
     }
 }

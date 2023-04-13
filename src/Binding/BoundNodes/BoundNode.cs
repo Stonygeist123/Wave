@@ -11,6 +11,8 @@ namespace Wave.Source.Binding.BoundNodes
         NameExpr,
         AssignmentExpr,
         CallExpr,
+        ArrayExpr,
+        IndexingExpr,
         ConversionExpr,
         ErrorExpr,
 

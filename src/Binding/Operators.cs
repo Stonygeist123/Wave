@@ -34,7 +34,7 @@ namespace Wave.Source.Binding
         public static BoundUnOperator? Bind(SyntaxKind kind, TypeSymbol operandType)
         {
             foreach (BoundUnOperator op in _operators)
-                if (op.SyntaxKind == kind && op.OperandType == operandType)
+                if (op.SyntaxKind == kind && op.OperandType == operandType && operandType.IsArray == op.OperandType.IsArray)
                     return op;
 
             return null;
@@ -138,13 +138,25 @@ namespace Wave.Source.Binding
             new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.String, TypeSymbol.Int, TypeSymbol.String),
             new(SyntaxKind.Minus, BoundBinOpKind.Minus, TypeSymbol.String, TypeSymbol.Int, TypeSymbol.String),
             new(SyntaxKind.Star, BoundBinOpKind.Star, TypeSymbol.String, TypeSymbol.Int, TypeSymbol.String),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, new(TypeSymbol.Int.Name, true), TypeSymbol.Int, new(TypeSymbol.Int.Name, true)),
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.Int, new(TypeSymbol.Int.Name, true), new(TypeSymbol.Int.Name, true)),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, new(TypeSymbol.Float.Name, true), TypeSymbol.Float, new(TypeSymbol.Float.Name, true)),
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.Float, new(TypeSymbol.Float.Name, true), new(TypeSymbol.Float.Name, true)),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, new(TypeSymbol.String.Name, true), TypeSymbol.String, new(TypeSymbol.String.Name, true)),
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.String, new(TypeSymbol.String.Name, true), new(TypeSymbol.String.Name, true)),
+
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, new(TypeSymbol.Bool.Name, true), TypeSymbol.Bool, new(TypeSymbol.Bool.Name, true)),
+            new(SyntaxKind.Plus, BoundBinOpKind.Plus, TypeSymbol.Bool, new(TypeSymbol.Bool.Name, true), new(TypeSymbol.Bool.Name, true)),
         };
 
 
         public static BoundBinOperator? Bind(SyntaxKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
             foreach (BoundBinOperator op in _operators)
-                if (op.SyntaxKind == kind && op.LeftType == leftType && op.RightType == rightType)
+                if (op.SyntaxKind == kind && op.LeftType == leftType && op.RightType == rightType && leftType.IsArray == op.LeftType.IsArray && rightType.IsArray == op.RightType.IsArray)
                     return op;
 
             return null;

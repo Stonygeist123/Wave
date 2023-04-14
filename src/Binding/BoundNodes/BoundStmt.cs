@@ -98,6 +98,22 @@ namespace Wave.Source.Binding.BoundNodes
         public BoundExpr UpperBound { get; }
     }
 
+    public sealed class BoundForEachStmt : BoundLoopStmt
+    {
+        public BoundForEachStmt(VariableSymbol variable, VariableSymbol? index, BoundExpr array, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel)
+            : base(body, bodyLabel, breakLabel, continueLabel)
+        {
+            Variable = variable;
+            Index = index;
+            Array = array;
+        }
+
+        public override BoundNodeKind Kind => BoundNodeKind.ForEachStmt;
+        public VariableSymbol Variable { get; }
+        public VariableSymbol? Index { get; }
+        public BoundExpr Array { get; }
+    }
+
     public sealed class BoundLabelStmt : BoundStmt
     {
         public BoundLabelStmt(LabelSymbol label) => Label = label;

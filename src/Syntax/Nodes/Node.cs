@@ -142,10 +142,12 @@ namespace Wave.Source.Syntax.Nodes
         While,
         Do,
         For,
+        Each,
         Fn,
         Continue,
         Break,
         Ret,
+        In,
 
         // Nodes
         CompilationUnit,
@@ -170,6 +172,7 @@ namespace Wave.Source.Syntax.Nodes
         VarStmt,
         IfStmt,
         ForStmt,
+        ForEachStmt,
         BreakStmt,
         ContinueStmt,
         RetStmt

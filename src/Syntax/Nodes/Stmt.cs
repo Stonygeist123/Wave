@@ -115,14 +115,14 @@ namespace Wave.Source.Syntax.Nodes
 
     public sealed class ForStmt : StmtNode
     {
-        public ForStmt(SyntaxTree syntaxTree, Token keyword, Token id, Token eqToken, ExprNode lowerBound, Token toKeyword, ExprNode upperBound, StmtNode stmt)
+        public ForStmt(SyntaxTree syntaxTree, Token keyword, Token id, Token eqToken, ExprNode lowerBound, Token arrowToken, ExprNode upperBound, StmtNode stmt)
         : base(syntaxTree)
         {
             Keyword = keyword;
             Id = id;
             EqToken = eqToken;
             LowerBound = lowerBound;
-            ToKeyword = toKeyword;
+            ArrowToken = arrowToken;
             UpperBound = upperBound;
             Stmt = stmt;
         }
@@ -132,8 +132,34 @@ namespace Wave.Source.Syntax.Nodes
         public Token Id { get; }
         public Token EqToken { get; }
         public ExprNode LowerBound { get; }
-        public Token ToKeyword { get; }
+        public Token ArrowToken { get; }
         public ExprNode UpperBound { get; }
+        public StmtNode Stmt { get; }
+    }
+
+    public sealed class ForEachStmt : StmtNode
+    {
+        public ForEachStmt(SyntaxTree syntaxTree, Token keyword, Token eachKw, Token id, Token? comma, Token? index, Token inToken, ExprNode array, StmtNode stmt)
+        : base(syntaxTree)
+        {
+            Keyword = keyword;
+            EachKw = eachKw;
+            Id = id;
+            Comma = comma;
+            Index = index;
+            InToken = inToken;
+            Array = array;
+            Stmt = stmt;
+        }
+
+        public override SyntaxKind Kind => SyntaxKind.ForEachStmt;
+        public Token Keyword { get; }
+        public Token EachKw { get; }
+        public Token Id { get; }
+        public Token? Comma { get; }
+        public Token? Index { get; }
+        public Token InToken { get; }
+        public ExprNode Array { get; }
         public StmtNode Stmt { get; }
     }
 

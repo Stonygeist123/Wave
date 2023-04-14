@@ -231,6 +231,7 @@ namespace Wave.src.Binding.BoundNodes
                 WhileStmt w => BindWhileStmt(w),
                 DoWhileStmt d => BindDoWhileStmt(d),
                 ForStmt f => BindForStmt(f),
+                ForEachStmt fe => BindForEachStmt(fe),
                 BreakStmt b => BindBreakStmt(b),
                 ContinueStmt c => BindContinueStmt(c),
                 RetStmt r => BindRetStmt(r),
@@ -306,6 +307,20 @@ namespace Wave.src.Binding.BoundNodes
             BoundStmt stmt = BoundLoopStmt(f.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             _scope = _scope.Parent!;
             return new(variable, lowerBound, upperBound, stmt, bodyLabel, breakLabel, continueLabel);
+        }
+
+        private BoundForEachStmt BindForEachStmt(ForEachStmt fe)
+        {
+            BoundExpr array = BindExpr(fe.Array);
+            if (!array.Type.IsArray)
+                _diagnostics.Report(fe.Array.Location, $"Expected an array.");
+
+            _scope = new(_scope);
+            VariableSymbol variable = DeclareVar(fe.Id, new(array.Type.Name, false));
+            VariableSymbol? index = fe.Index is null ? null : DeclareVar(fe.Index, TypeSymbol.Int);
+            BoundStmt stmt = BoundLoopStmt(fe.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            _scope = _scope.Parent!;
+            return new(variable, index, array, stmt, bodyLabel, breakLabel, continueLabel);
         }
 
         private BoundStmt BoundLoopStmt(StmtNode stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel)

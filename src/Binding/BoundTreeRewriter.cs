@@ -14,6 +14,7 @@ namespace Wave.Source.Binding
             BoundNodeKind.WhileStmt => RewriteWhileStmt((BoundWhileStmt)node),
             BoundNodeKind.DoWhileStmt => RewriteDoWhileStmt((BoundDoWhileStmt)node),
             BoundNodeKind.ForStmt => RewriteForStmt((BoundForStmt)node),
+            BoundNodeKind.ForEachStmt => RewriteForEachStmt((BoundForEachStmt)node),
             BoundNodeKind.LabelStmt => RewriteLabelStmt((BoundLabelStmt)node),
             BoundNodeKind.GotoStmt => RewriteGotoStmt((BoundGotoStmt)node),
             BoundNodeKind.CondGotoStmt => RewriteCondGotoStmt((BoundCondGotoStmt)node),
@@ -123,6 +124,16 @@ namespace Wave.Source.Binding
                 return node;
 
             return new BoundForStmt(node.Variable, lowerBound, upperBound, stmt, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
+        }
+
+        protected virtual BoundStmt RewriteForEachStmt(BoundForEachStmt node)
+        {
+            BoundExpr array = RewriteExpr(node.Array);
+            BoundStmt stmt = RewriteStmt(node.Body);
+            if (array == node.Array && stmt == node.Body)
+                return node;
+
+            return new BoundForEachStmt(node.Variable, node.Index, array, stmt, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteLabelStmt(BoundLabelStmt node) => node;

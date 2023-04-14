@@ -171,16 +171,30 @@ namespace Wave.Source.Syntax
             return new(_syntaxTree, kw, stmt, whileKw, condition);
         }
 
-        private ForStmt ParseForStmt()
+        private StmtNode ParseForStmt()
         {
             Token kw = Match(SyntaxKind.For);
-            Token id = Match(SyntaxKind.Identifier);
-            Token eqToken = Match(SyntaxKind.Eq);
-            ExprNode lowerBound = ParseExpr();
-            Token arrow = Match(SyntaxKind.Arrow);
-            ExprNode upperBound = ParseExpr();
-            StmtNode stmt = ParseStmt();
-            return new(_syntaxTree, kw, id, eqToken, lowerBound, arrow, upperBound, stmt);
+            if (Current.Kind == SyntaxKind.Each)
+            {
+                Token eachKw = Advance();
+                Token id = Match(SyntaxKind.Identifier);
+                Token? comma = Current.Kind == SyntaxKind.Comma ? Advance() : null;
+                Token? index = comma is null ? null : Match(SyntaxKind.Identifier);
+                Token inToken = Match(SyntaxKind.In);
+                ExprNode array = ParseExpr();
+                StmtNode stmt = ParseStmt();
+                return new ForEachStmt(_syntaxTree, kw, eachKw, id, comma, index, inToken, array, stmt);
+            }
+            else
+            {
+                Token id = Match(SyntaxKind.Identifier);
+                Token eqToken = Match(SyntaxKind.Eq);
+                ExprNode lowerBound = ParseExpr();
+                Token arrow = Match(SyntaxKind.Arrow);
+                ExprNode upperBound = ParseExpr();
+                StmtNode stmt = ParseStmt();
+                return new ForStmt(_syntaxTree, kw, id, eqToken, lowerBound, arrow, upperBound, stmt);
+            }
         }
 
         private BreakStmt ParseBreakStmt()

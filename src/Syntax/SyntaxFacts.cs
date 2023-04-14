@@ -34,11 +34,13 @@ namespace Wave.Source.Syntax
             "else" => SyntaxKind.Else,
             "while" => SyntaxKind.While,
             "for" => SyntaxKind.For,
+            "each" => SyntaxKind.Each,
             "fn" => SyntaxKind.Fn,
             "do" => SyntaxKind.Do,
             "break" => SyntaxKind.Break,
             "continue" => SyntaxKind.Continue,
             "ret" => SyntaxKind.Ret,
+            "in" => SyntaxKind.In,
             _ => SyntaxKind.Identifier,
         };
 
@@ -79,11 +81,13 @@ namespace Wave.Source.Syntax
             SyntaxKind.Mut => "mut",
             SyntaxKind.While => "while",
             SyntaxKind.For => "for",
+            SyntaxKind.Each => "each",
             SyntaxKind.Fn => "fn",
             SyntaxKind.Do => "do",
             SyntaxKind.Break => "break",
             SyntaxKind.Continue => "continue",
             SyntaxKind.Ret => "ret",
+            SyntaxKind.In => "in",
             _ => null,
         };
     }

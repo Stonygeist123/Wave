@@ -102,5 +102,56 @@ namespace Wave.Lowering
                 whileStmt
                 )));
         }
+
+        protected override BoundStmt RewriteForEachStmt(BoundForEachStmt node)
+        {
+            BoundBinary upperBound = new(new BoundUnary(BoundUnOperator.Bind(SyntaxKind.Plus, node.Array.Type)!, node.Array), BoundBinOperator.Bind(SyntaxKind.Minus, TypeSymbol.Int, TypeSymbol.Int)!, new BoundLiteral(1));
+            BoundLiteral lowerBound = new(0);
+            if (node.Index is null)
+            {
+                LocalVariableSymbol index = new("$i", TypeSymbol.Int, true);
+                BoundVarStmt indexDecl = new(index, lowerBound);
+                BoundName indexExpr = new(index);
+                LocalVariableSymbol upperBoundSymbol = new("upperBound", TypeSymbol.Int, false);
+                BoundVarStmt upperBoundDecl = new(upperBoundSymbol, upperBound);
+                BoundBinary condition = new(indexExpr, BoundBinOperator.Bind(SyntaxKind.LessEq, TypeSymbol.Int, TypeSymbol.Int)!, new BoundName(upperBoundSymbol));
+                BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
+                BoundExpressionStmt increment = new(new BoundAssignment(
+                        index,
+                        new BoundBinary(
+                            indexExpr,
+                            BoundBinOperator.Bind(SyntaxKind.Plus, TypeSymbol.Int, TypeSymbol.Int)!,
+                            new BoundLiteral(1))
+                        )
+                );
+
+                BoundVarStmt varDecl = new(node.Variable, new BoundIndexing(node.Array, indexExpr));
+                BoundBlockStmt whileBody = new(ImmutableArray.Create(varDecl, node.Body, continueLabelStmt, increment));
+                BoundWhileStmt whileStmt = new(condition, whileBody, node.BodyLabel, node.BreakLabel, GenerateLabel());
+                return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(
+                    indexDecl,
+                    upperBoundDecl,
+                    whileStmt
+                    )));
+            }
+            else
+            {
+                BoundName indexExpr = new(node.Index);
+                BoundVarStmt varDecl = new(node.Variable, lowerBound);
+                BoundBlockStmt forBody = new(ImmutableArray.Create(
+                    new BoundExpressionStmt(new BoundAssignment(node.Variable, new BoundIndexing(node.Array, indexExpr))),
+                    node.Body));
+
+                BoundForStmt forStmt = new(node.Index,
+                    lowerBound,
+                    upperBound,
+                    forBody,
+                    node.BodyLabel,
+                    node.BreakLabel,
+                    node.ContinueLabel);
+
+                return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(varDecl, forStmt)));
+            }
+        }
     }
 }

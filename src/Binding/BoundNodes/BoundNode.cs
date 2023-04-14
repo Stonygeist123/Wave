@@ -25,6 +25,7 @@ namespace Wave.Source.Binding.BoundNodes
         WhileStmt,
         DoWhileStmt,
         ForStmt,
+        ForEachStmt,
         LabelStmt,
         GotoStmt,
         CondGotoStmt,

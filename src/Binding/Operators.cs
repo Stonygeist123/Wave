@@ -28,7 +28,13 @@ namespace Wave.Source.Binding
             new(SyntaxKind.Plus, BoundUnOpKind.Plus, TypeSymbol.Int),
             new(SyntaxKind.Minus, BoundUnOpKind.Minus, TypeSymbol.Int),
             new(SyntaxKind.Inv, BoundUnOpKind.Inv, TypeSymbol.Int),
-            new(SyntaxKind.Bang, BoundUnOpKind.Bang, TypeSymbol.Bool)
+            new(SyntaxKind.Bang, BoundUnOpKind.Bang, TypeSymbol.Bool),
+
+
+            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.Int.Name, true), TypeSymbol.Int),
+            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.Float.Name, true), TypeSymbol.Int),
+            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.Bool.Name, true), TypeSymbol.Int),
+            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.String.Name, true), TypeSymbol.Int)
         };
 
         public static BoundUnOperator? Bind(SyntaxKind kind, TypeSymbol operandType)

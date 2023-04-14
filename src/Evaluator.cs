@@ -68,8 +68,6 @@ namespace Wave
                         (v.Variable.Kind == SymbolKind.GlobalVariable
                         ? _globals
                         : _locals.Peek()).Add(v.Variable, value);
-
-                        _lastValue = value;
                         ++index;
                         break;
                     }
@@ -109,6 +107,16 @@ namespace Wave
                 case BoundUnary u:
                 {
                     object v = EvaluateExpr(u.Operand)!;
+
+                    if (u.Operand.Type.IsArray)
+                    {
+                        return u.Op.Kind switch
+                        {
+                            BoundUnOpKind.Plus => ((object?[])v).Length,
+                            _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
+                        };
+                    }
+
                     return u.Op.Kind switch
                     {
                         BoundUnOpKind.Plus => (int)v,

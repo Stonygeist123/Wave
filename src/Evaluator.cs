@@ -107,12 +107,11 @@ namespace Wave
                 case BoundUnary u:
                 {
                     object v = EvaluateExpr(u.Operand)!;
-
                     if (u.Operand.Type.IsArray)
                     {
                         return u.Op.Kind switch
                         {
-                            BoundUnOpKind.Plus => ((object?[])v).Length,
+                            BoundUnOpKind.Plus => ((Array)v).Length,
                             _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
                         };
                     }
@@ -299,6 +298,8 @@ namespace Wave
                     }
                     else if (c.Function == BuiltInFunctions.Random)
                         return rnd.Next((int?)EvaluateExpr(c.Args[0]) ?? 1);
+                    else if (c.Function == BuiltInFunctions.Range)
+                        return Enumerable.Range((int?)EvaluateExpr(c.Args[0]) ?? 0, (int?)EvaluateExpr(c.Args[1]) ?? 1).ToArray();
                     else
                     {
                         Dictionary<VariableSymbol, object?> locals = new();
@@ -322,7 +323,7 @@ namespace Wave
                     int index = (int)EvaluateExpr(i.Index)!;
                     try
                     {
-                        return EvaluateExpr(i.Array) is not object?[] array ? null : array[index];
+                        return EvaluateExpr(i.Array) is not Array array ? null : Enumerable.Cast<object>(array).ElementAt(index);
                     }
                     catch (IndexOutOfRangeException)
                     {

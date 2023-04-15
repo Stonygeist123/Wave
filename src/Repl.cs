@@ -623,14 +623,6 @@ namespace Wave.Repl
                 EvaluationResult result = compilation.Evaluate(_vars);
                 if (!result.Diagnostics.Any())
                 {
-                    if (result.Value is not null && !_loadingSubmission)
-                    {
-                        Console.Out.SetForeground(ConsoleColor.DarkBlue);
-                        Console.Out.WriteLine(result.Value.Stringify());
-                        Console.Out.ResetColor();
-                        Console.Out.WriteLine();
-                    }
-
                     if ((_previous?.Functions.Length ?? 0) < compilation.Functions.Length || (_previous?.Variables.Length ?? 0) < compilation.Variables.Length)
                         SaveSubmission(text);
 
@@ -638,6 +630,7 @@ namespace Wave.Repl
                 }
                 else
                     Console.Out.WriteDiagnostics(result.Diagnostics);
+                Console.Out.WriteLine();
             }
             catch (RuntimeException ex)
             {

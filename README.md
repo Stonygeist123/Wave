@@ -193,7 +193,7 @@ General:
 while <expr> <stmt>
 ```
 
-#### For-range (for)
+#### For (for)
 ```
 Examples:
 var x = 10;
@@ -204,6 +204,19 @@ for i = 1 -> x
 
 General:
 for <id> = <expr> -> <expr> <stmt>
+```
+
+#### For-each (foreach)
+```
+Examples:
+for each x, i in range(1, 10)
+	print(string(x * i))
+	
+for each x in [3, 5, 6]
+	print(string(x))
+
+General:
+for each <id>[, id] in <expr> <stmt>
 ```
 
 #### Break (break)

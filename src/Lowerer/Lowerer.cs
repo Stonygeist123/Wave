@@ -125,11 +125,20 @@ namespace Wave.Lowering
                         )
                 );
 
+                BoundExpressionStmt reassignVar = new(new BoundAssignment(
+                        node.Variable,
+                        new BoundIndexing(
+                            node.Array,
+                            indexExpr
+                        )
+                ));
+
                 BoundVarStmt varDecl = new(node.Variable, new BoundIndexing(node.Array, indexExpr));
-                BoundBlockStmt whileBody = new(ImmutableArray.Create(varDecl, node.Body, continueLabelStmt, increment));
+                BoundBlockStmt whileBody = new(ImmutableArray.Create(reassignVar, node.Body, continueLabelStmt, increment));
                 BoundWhileStmt whileStmt = new(condition, whileBody, node.BodyLabel, node.BreakLabel, GenerateLabel());
                 return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create<BoundStmt>(
                     indexDecl,
+                    varDecl,
                     upperBoundDecl,
                     whileStmt
                     )));

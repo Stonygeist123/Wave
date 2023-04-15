@@ -140,15 +140,12 @@ namespace Wave
             if (v is Array arr)
             {
                 string res = "[";
+                IEnumerable<object> en = Enumerable.Cast<object>(arr);
                 if (arr.Length > 0)
-                    res += Stringify(((object?[])arr).First()) ?? "";
+                    res += Stringify(en.First()) ?? "";
 
                 for (int i = 1; i < arr.Length; ++i)
-                {
-                    object? el = ((object?[])arr)[i];
-                    res += ", " + Stringify(el);
-                }
-
+                    res += ", " + Stringify((object?)en.ElementAt(i));
                 return res + "]";
             }
 

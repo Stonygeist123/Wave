@@ -233,7 +233,7 @@ namespace Wave.Source.Syntax
                 Token id = Match(SyntaxKind.Identifier);
                 Token eqToken = Match(SyntaxKind.Eq);
                 ExprNode right = ParseAssignmentExpr();
-                return new AssignmentExpr(_syntaxTree, id, eqToken, right);
+                return new AssignmentExpr(_syntaxTree, new NameExpr(_syntaxTree, id), eqToken, right);
             }
 
             return ParseBinExpr();
@@ -280,7 +280,12 @@ namespace Wave.Source.Syntax
             };
 
             if (Current.Kind == SyntaxKind.LBracket)
+            {
                 expr = new IndexingExpr(_syntaxTree, expr, Advance(), ParseExpr(), Match(SyntaxKind.RBracket));
+                if (Current.Kind == SyntaxKind.Eq)
+                    expr = new AssignmentExpr(_syntaxTree, expr, Advance(), ParseExpr());
+            }
+
             return expr;
         }
 

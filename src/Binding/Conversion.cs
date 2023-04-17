@@ -24,7 +24,7 @@ namespace Wave.Source.Binding
         {
             if (from.IsArray)
             {
-                if (to == TypeSymbol.String)
+                if (to == TypeSymbol.String && !to.IsArray)
                     return Explicit;
                 return from == to && to.IsArray ? Identity : None;
             }

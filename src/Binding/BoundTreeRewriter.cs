@@ -31,6 +31,7 @@ namespace Wave.Source.Binding
                 BoundNodeKind.BinaryExpr => RewriteBinaryExpr((BoundBinary)node),
                 BoundNodeKind.NameExpr => RewriteNameExpr((BoundName)node),
                 BoundNodeKind.AssignmentExpr => RewriteAssignmentExpr((BoundAssignment)node),
+                BoundNodeKind.ArrayAssignmentExpr => RewriteArrayAssignmentExpr((BoundArrayAssignment)node),
                 BoundNodeKind.CallExpr => RewriteCallExpr((BoundCall)node),
                 BoundNodeKind.ArrayExpr => RewriteArrayExpr((BoundArray)node),
                 BoundNodeKind.IndexingExpr => RewriteIndexingExpr((BoundIndexing)node),
@@ -187,6 +188,16 @@ namespace Wave.Source.Binding
                 return node;
 
             return new BoundAssignment(node.Variable, value);
+        }
+
+        protected virtual BoundExpr RewriteArrayAssignmentExpr(BoundArrayAssignment node)
+        {
+            BoundExpr index = RewriteExpr(node.Index);
+            BoundExpr value = RewriteExpr(node.Value);
+            if (index == node.Index && value == node.Value)
+                return node;
+
+            return new BoundArrayAssignment(node.Variable, index, value);
         }
 
         protected virtual BoundExpr RewriteCallExpr(BoundCall node)

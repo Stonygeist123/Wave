@@ -256,7 +256,7 @@ namespace Wave.src.Binding.BoundNodes
             bool isMut = v.MutKeyword is not null;
             BoundExpr value = BindExpr(v.Value);
             TypeSymbol type = BindTypeClause(v.TypeClause) ?? value.Type;
-            value = BindConversion(value, type, v.Value.Location);
+            value = BindConversion(value, type, v.Value.Location, false, type.IsArray);
             return new(DeclareVar(v.Name, type, isMut), value);
         }
 
@@ -446,7 +446,7 @@ namespace Wave.src.Binding.BoundNodes
             return new BoundBinary(left, op, right);
         }
 
-        static string FindBestMatch(string stringToCompare, IEnumerable<string> strs)
+        string FindBestMatch(string stringToCompare, IEnumerable<string> strs, TypeSymbol? type = null)
         {
 
             HashSet<string> strCompareHash = stringToCompare.Split(' ').ToHashSet();
@@ -456,9 +456,8 @@ namespace Wave.src.Binding.BoundNodes
             foreach (string str in strs)
             {
                 HashSet<string> strHash = str.Split(' ').ToHashSet();
-
                 int intersectCount = strCompareHash.Intersect(strCompareHash).Count();
-                if (intersectCount > maxIntersectCount)
+                if (intersectCount > maxIntersectCount && (type is null ? true : _scope.GetVariables().Any(v => v.Name == str && v.Type == type)))
                 {
                     maxIntersectCount = intersectCount;
                     bestMatch = str;
@@ -500,18 +499,47 @@ namespace Wave.src.Binding.BoundNodes
 
         private BoundExpr BindAssignmentExpr(AssignmentExpr a)
         {
-            Token id = a.Identifier;
-            if (!_scope.TryLookupVar(id.Lexeme, out VariableSymbol? variable))
+            ExprNode id = a.Id;
+            BoundExpr value = BindExpr(a.Value);
+            if (id.Kind == SyntaxKind.NameExpr)
             {
-                string bestMatch = FindBestMatch(id.Lexeme, _scope.GetVariables().Select(v => v.Name));
-                _diagnostics.Report(id.Location, $"Could not find \"{id.Lexeme}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
-                return new BoundError();
+                Token name = ((NameExpr)id).Identifier;
+                if (!_scope.TryLookupVar(name.Lexeme, out VariableSymbol? variable))
+                {
+                    string bestMatch = FindBestMatch(name.Lexeme, _scope.GetVariables().Select(v => v.Name));
+                    _diagnostics.Report(id.Location, $"Could not find \"{name.Lexeme}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    return new BoundError();
+                }
+
+                if (!variable!.IsMut)
+                    _diagnostics.Report(a.Location, $"Cannot assign to \"{name.Lexeme}\" - it is a constant.");
+
+                return new BoundAssignment(variable, BindConversion(value, variable.Type, a.Location));
+            }
+            else if (id.Kind == SyntaxKind.IndexingExpr)
+            {
+                IndexingExpr indexing = (IndexingExpr)a.Id;
+                if (indexing.Array.Kind != SyntaxKind.NameExpr)
+                {
+                    _diagnostics.Report(indexing.Array.Location, "Cannot change value of constant expression.");
+                    return new BoundError();
+                }
+
+                string arrName = ((NameExpr)indexing.Array).Identifier.Lexeme;
+                if (!_scope.TryLookupVar(arrName, out VariableSymbol? variable))
+                {
+                    string bestMatch = FindBestMatch(arrName, _scope.GetVariables().Select(v => v.Name), new(value.Type.Name, true));
+                    _diagnostics.Report(indexing.Array.Location, $"Could not find \"{arrName}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    return new BoundError();
+                }
+
+                if (!variable!.IsMut)
+                    _diagnostics.Report(a.Location, $"Cannot assign to \"{arrName}\" - it is a constant.");
+
+                return new BoundArrayAssignment(variable!, BindExpr(indexing.Index), value);
             }
 
-            if (!variable!.IsMut)
-                _diagnostics.Report(a.Location, $"Cannot assign to \"{id.Lexeme}\" - it is a constant.");
-
-            return new BoundAssignment(variable, BindConversion(BindExpr(a.Value), variable.Type, a.Location));
+            return new BoundError();
         }
 
         private BoundExpr BindCallExpr(CallExpr c)
@@ -637,14 +665,11 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundError();
             }
 
-            if (!allowExplicit && conversion.IsExplicit)
+            if (!allowExplicit && conversion.IsExplicit && !conversion.IsIdentity)
                 _diagnostics.Report(location, errorImplicit ?? $"No implicit conversion from \"{expr.Type}\" to \"{type}\" possible; though an explicit cast is.", errorImplSuggestion ?? $"\"{type.Name}({location.Text})\".");
 
             if (conversion.IsIdentity)
-            {
                 return expr;
-            }
-
             return new BoundConversion(type, expr);
         }
 

@@ -1,11 +1,12 @@
-﻿using Wave.IO;
+﻿using System.Text.RegularExpressions;
+using Wave.IO;
 using Wave.Repl;
 using Wave.Source.Compilation;
 using Wave.Source.Syntax;
 
 namespace Wave
 {
-    public static class Program
+    public static partial class Program
     {
         private static void Main(string[] args)
         {
@@ -29,12 +30,20 @@ namespace Wave
                 if (string.IsNullOrEmpty(text))
                     return;
 
-                SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(text, path));
+                SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(ReplaceImportStmt(text), path));
                 Compilation compilation = Compilation.Create(syntaxTree);
                 EvaluationResult result = compilation.Evaluate(new());
                 if (result.Diagnostics.Any())
                     Console.Out.WriteDiagnostics(result.Diagnostics);
             }
         }
+
+        private static string ReplaceImportStmt(string text) => ImportStmtRegex().Replace(text, delegate (Match m)
+                                                                         {
+                                                                             return ReplaceImportStmt(File.ReadAllText(m.Value.Remove(0, 6).Replace("\"", "").TrimStart()[..^1]));
+                                                                         });
+
+        [GeneratedRegex("import \".*\";")]
+        private static partial Regex ImportStmtRegex();
     }
 }

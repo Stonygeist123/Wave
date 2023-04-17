@@ -150,7 +150,7 @@ namespace Wave.Repl
             view.CurrentColumn = document[view.CurrentLine].Length;
 
             Console.WriteLine();
-            return string.Join(Environment.NewLine, document);
+            return string.Join(Environment.NewLine, document).Replace("\\n", "\n");
         }
 
         private void HandleKey(ConsoleKeyInfo key, ObservableCollection<string> document, SubmissionView view)

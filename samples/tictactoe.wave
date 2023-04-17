@@ -1,0 +1,75 @@
+﻿
+import "C:\Users\Yunus\source\repos\Wave\samples\tictactoe1.wave";
+
+fn main
+{
+    var mut square: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    var mut player = 1;
+    var mut i = 0;
+    var mut choice = 0;
+    var mut mark = "";
+
+    do
+    {
+        board(square)
+        if player % 2 == 1
+            player = 1
+        else
+            player = 2
+
+        if player == 1
+            mark = "X"
+        else
+            mark = "O"
+
+        choice = int(input())
+        if choice == 1 && square[0] == "1"
+            square[0] = mark
+        else if choice == 2 && square[1] == "2"
+            square[1] = mark
+        else if choice == 3 && square[2] == "3"
+            square[2] = mark
+        else if choice == 4 && square[3] == "4"
+            square[3] = mark
+        else if choice == 5 && square[4] == "5"
+            square[4] = mark
+        else if choice == 6 && square[5] == "6"
+            square[5] = mark
+        else if choice == 7 && square[6] == "7"
+            square[6] = mark
+        else if choice == 8 && square[7] == "8"
+            square[7] = mark
+        else if choice == 9 && square[8] == "9"
+            square[8] = mark
+        else
+        {
+            print("Invalid move.")
+            player = player - 1
+        }
+
+        i = checkwin(square)
+        player = player + 1
+    } while i == -1
+    
+    board(square)
+    if i == 1
+        print("==> Player " + (player - 1) + " won!")
+    else
+        print("==> Game draw")
+}
+
+fn checkwin(square: string[]) -> int
+{
+    if square[0] == square[1] && square[1] == square[2]     ||
+        square[3] == square[4] && square[4] == square[5]    ||
+        square[6] == square[7] && square[7] == square[8]    ||
+        square[0] == square[3] && square[3] == square[6]    ||
+        square[1] == square[4] && square[4] == square[7]    ||
+        square[2] == square[5] && square[5] == square[8]    ||
+        square[0] == square[4] && square[4] == square[8]    ||
+        square[2] == square[4] && square[4] == square[6]
+        ret 1;
+    else if square[0] != "1" && square[1] != "2" && square[2] != "3" && square[3] != "4" && square[4] != "5" && square[5] != "6" && square[6] != "7" && square[7] != "8" && square[8] != "9"
+        ret 0;
+    ret  -1;
+}

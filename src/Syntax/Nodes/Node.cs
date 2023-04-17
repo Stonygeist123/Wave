@@ -148,6 +148,7 @@ namespace Wave.Source.Syntax.Nodes
         Break,
         Ret,
         In,
+        Import,
 
         // Nodes
         CompilationUnit,
@@ -165,6 +166,8 @@ namespace Wave.Source.Syntax.Nodes
         NameExpr,
         AssignmentExpr,
         CallExpr,
+        ArrayExpr,
+        IndexingExpr,
 
         // Stmt
         ExpressionStmt,
@@ -175,6 +178,7 @@ namespace Wave.Source.Syntax.Nodes
         ForEachStmt,
         BreakStmt,
         ContinueStmt,
-        RetStmt
+        RetStmt,
+        ImportStmt
     }
 }

@@ -41,6 +41,7 @@ namespace Wave.Source.Syntax
             "continue" => SyntaxKind.Continue,
             "ret" => SyntaxKind.Ret,
             "in" => SyntaxKind.In,
+            "import" => SyntaxKind.Import,
             _ => SyntaxKind.Identifier,
         };
 
@@ -88,6 +89,7 @@ namespace Wave.Source.Syntax
             SyntaxKind.Continue => "continue",
             SyntaxKind.Ret => "ret",
             SyntaxKind.In => "in",
+            SyntaxKind.Import => "import",
             _ => null,
         };
     }

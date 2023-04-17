@@ -75,13 +75,13 @@
     public sealed class AssignmentExpr : ExprNode
     {
         public override SyntaxKind Kind => SyntaxKind.AssignmentExpr;
-        public Token Identifier { get; }
+        public ExprNode Id { get; }
         public Token EqToken { get; }
         public ExprNode Value { get; }
-        public AssignmentExpr(SyntaxTree syntaxTree, Token identifier, Token eqToken, ExprNode value)
+        public AssignmentExpr(SyntaxTree syntaxTree, ExprNode id, Token eqToken, ExprNode value)
             : base(syntaxTree)
         {
-            Identifier = identifier;
+            Id = id;
             EqToken = eqToken;
             Value = value;
         }
@@ -106,7 +106,7 @@
 
     public sealed class ArrayExpr : ExprNode
     {
-        public override SyntaxKind Kind => SyntaxKind.CallExpr;
+        public override SyntaxKind Kind => SyntaxKind.ArrayExpr;
         public Token? LessToken { get; }
         public Token? Type { get; }
         public Token? GreaterToken { get; }
@@ -127,7 +127,7 @@
 
     public sealed class IndexingExpr : ExprNode
     {
-        public override SyntaxKind Kind => SyntaxKind.CallExpr;
+        public override SyntaxKind Kind => SyntaxKind.IndexingExpr;
         public ExprNode Array { get; }
         public Token LBracket { get; }
         public ExprNode Index { get; }

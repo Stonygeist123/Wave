@@ -193,6 +193,18 @@ General:
 while <expr> <stmt>
 ```
 
+#### Do-While (do-while)
+```
+Examples:
+var mut x = 10;
+do
+	x = x - 1;
+while x > 0
+
+General:
+while <expr> <stmt>
+```
+
 #### For (for)
 ```
 Examples:
@@ -206,7 +218,7 @@ General:
 for <id> = <expr> -> <expr> <stmt>
 ```
 
-#### For-each (foreach)
+#### For-each (for-each)
 ```
 Examples:
 for each x, i in range(1, 10)

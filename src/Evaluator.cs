@@ -287,6 +287,20 @@ namespace Wave
                     return (a.Variable.Kind == SymbolKind.GlobalVariable
                             ? _globals
                             : _locals.Peek())[a.Variable] = EvaluateExpr(a.Value);
+                case BoundArrayAssignment a:
+                {
+                    object?[] oldV = (object?[])(a.Variable.Kind == SymbolKind.GlobalVariable
+                           ? _globals
+                           : _locals.Peek())[a.Variable]!;
+                    int index = (int)EvaluateExpr(a.Index)!;
+                    object? v = EvaluateExpr(a.Value);
+                    oldV[index] = v;
+                    (a.Variable.Kind == SymbolKind.GlobalVariable
+                           ? _globals
+                           : _locals.Peek())[a.Variable] = oldV;
+
+                    return v;
+                }
                 case BoundCall c:
                 {
                     if (c.Function == BuiltInFunctions.Input)
@@ -320,6 +334,7 @@ namespace Wave
                 case BoundArray a:
                     return a.Elements.Select(EvaluateExpr).ToArray();
                 case BoundIndexing i:
+                {
                     int index = (int)EvaluateExpr(i.Index)!;
                     try
                     {
@@ -330,6 +345,7 @@ namespace Wave
                         RuntimeException($"Index Out Of Range: An element with the index \"{index}\" does not exist that array.");
                         break;
                     }
+                }
                 case BoundConversion c:
                 {
                     object v = EvaluateExpr(c.Expr)!;

@@ -101,9 +101,26 @@ namespace Wave.Source.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.AssignmentExpr;
         public VariableSymbol Variable { get; }
         public BoundExpr Value { get; }
-        public BoundAssignment(VariableSymbol variable, BoundExpr value)
+        public bool IsArray { get; }
+        public BoundAssignment(VariableSymbol variable, BoundExpr value, bool isArray = false)
         {
             Variable = variable;
+            Value = value;
+            IsArray = isArray;
+        }
+    }
+
+    public sealed class BoundArrayAssignment : BoundExpr
+    {
+        public override TypeSymbol Type => Value.Type;
+        public override BoundNodeKind Kind => BoundNodeKind.ArrayAssignmentExpr;
+        public VariableSymbol Variable { get; }
+        public BoundExpr Index { get; }
+        public BoundExpr Value { get; }
+        public BoundArrayAssignment(VariableSymbol variable, BoundExpr index, BoundExpr value)
+        {
+            Variable = variable;
+            Index = index;
             Value = value;
         }
     }

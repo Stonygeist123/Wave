@@ -277,7 +277,7 @@ namespace Wave.Source.Syntax
             }
 
             _kind = SyntaxKind.String;
-            _value = sb.ToString();
+            _value = sb.ToString().Replace("\\n", "\n").Replace("\\t", "\t");
         }
 
         private void LexNumber()

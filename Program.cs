@@ -8,6 +8,7 @@ namespace Wave
 {
     public static partial class Program
     {
+        private static readonly DiagnosticBag importDiagnostics = new();
         private static void Main(string[] args)
         {
             if (!args.Any())
@@ -30,7 +31,14 @@ namespace Wave
                 if (string.IsNullOrEmpty(text))
                     return;
 
-                SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(ReplaceImportStmt(text), path));
+                text = ReplaceImportStmt(text, path, path);
+                if (importDiagnostics.Any())
+                {
+                    Console.Out.WriteDiagnostics(importDiagnostics);
+                    return;
+                }
+
+                SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(text, path));
                 Compilation compilation = Compilation.Create(syntaxTree);
                 EvaluationResult result = compilation.Evaluate(new());
                 if (result.Diagnostics.Any())
@@ -38,9 +46,32 @@ namespace Wave
             }
         }
 
-        private static string ReplaceImportStmt(string text) => ImportStmtRegex().Replace(text, delegate (Match m)
+        private static string ReplaceImportStmt(string text, string startPath, string beforePath) => ImportStmtRegex().Replace(text, delegate (Match m)
                                                                          {
-                                                                             return ReplaceImportStmt(File.ReadAllText(m.Value.Remove(0, 6).Replace("\"", "").TrimStart()[..^1]));
+                                                                             string path = m.Value.Remove(0, 6).Replace("\"", string.Empty).TrimStart()[..^1];
+                                                                             SourceText src = SourceText.From(text, $"{startPath} -> {beforePath}");
+                                                                             if (!File.Exists(path))
+                                                                             {
+                                                                                 importDiagnostics.Report(new(src, new(m.Index, m.Value.Length)), $"Could not find file at path: {path}.");
+                                                                                 return string.Empty;
+                                                                             }
+
+                                                                             string fileText = File.ReadAllText(path);
+                                                                             bool hasError = false;
+                                                                             ImportStmtRegex().Replace(fileText, delegate (Match m)
+                                                                             {
+                                                                                 if (m.Value.Remove(0, 6).Replace("\"", string.Empty).TrimStart()[..^1] == startPath)
+                                                                                     hasError = true;
+                                                                                 return string.Empty;
+                                                                             });
+
+                                                                             if (hasError)
+                                                                             {
+                                                                                 importDiagnostics.Report(new(src, new(m.Index, m.Value.Length)), $"Circular dependency not allowed.");
+                                                                                 return string.Empty;
+                                                                             }
+
+                                                                             return ReplaceImportStmt(fileText, startPath, path);
                                                                          });
 
         [GeneratedRegex("import \".*\";")]

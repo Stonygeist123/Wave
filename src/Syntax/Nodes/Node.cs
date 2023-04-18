@@ -148,7 +148,6 @@ namespace Wave.Source.Syntax.Nodes
         Break,
         Ret,
         In,
-        Import,
 
         // Nodes
         CompilationUnit,
@@ -178,7 +177,6 @@ namespace Wave.Source.Syntax.Nodes
         ForEachStmt,
         BreakStmt,
         ContinueStmt,
-        RetStmt,
-        ImportStmt
+        RetStmt
     }
 }

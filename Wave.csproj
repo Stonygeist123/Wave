@@ -10,15 +10,11 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-	  <Optimize>True</Optimize>
+		<Optimize>True</Optimize>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Content Include="Wave_Icon.ico" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Include="Mono.Cecil" Version="0.11.4" />
+		<Content Include="Wave_Icon.ico" />
 	</ItemGroup>
 
 </Project>

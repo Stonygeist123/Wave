@@ -29,21 +29,18 @@ namespace Wave.Source.Binding
 
         public bool TryDeclareFn(FunctionSymbol fn)
         {
-            if (TryLookupFn(fn.Name, out _))
+            if (TryLookupFn(fn.Name, out FunctionSymbol[]? foundFn) && foundFn.Any(f => f == fn))
                 return false;
 
             _functions.Add(fn.Name, fn);
             return true;
         }
 
-        public bool TryLookupFn(string name, out FunctionSymbol? function)
+        public bool TryLookupFn(string name, out FunctionSymbol[] functions)
         {
-            function = _functions.Any(fn => fn.Key == name) ? _functions.SingleOrDefault(f => f.Key == name).Value : null;
-            if (function is not null)
-                return true;
-            if (Parent is null)
-                return false;
-            return Parent.TryLookupFn(name, out function);
+            ImmutableArray<FunctionSymbol> fns = GetFunctions();
+            functions = fns.Any(fn => fn.Name == name) ? fns.Where(f => f.Name == name).ToArray() : Array.Empty<FunctionSymbol>();
+            return functions.Any() || Parent is not null && Parent.TryLookupFn(name, out functions);
         }
 
         public ImmutableArray<VariableSymbol> GetDeclaredVars() => _variables.Values.ToImmutableArray();

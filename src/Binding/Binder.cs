@@ -77,8 +77,6 @@ namespace Wave.src.Binding.BoundNodes
             }
 
             ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
-            FunctionSymbol? globalStmtFn = mainFn ?? scriptFn;
-
             ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVars();
             if (previous is not null)
                 diagnostics.InsertRange(0, previous.Diagnostics);
@@ -165,7 +163,7 @@ namespace Wave.src.Binding.BoundNodes
             Token name = decl.Name;
             FunctionSymbol fn = new(name.Lexeme, parameters.ToImmutable(), fnType, decl);
             if (!_scope.TryDeclareFn(fn))
-                _diagnostics.Report(name.Location, $"Function \"{name.Lexeme}\" was already declared.");
+                _diagnostics.Report(name.Location, $"Function \"{name.Lexeme}\" was already declared with those parameters.");
         }
 
         private static BoundScope CreateParentScope(BoundGlobalScope? previous)
@@ -548,7 +546,7 @@ namespace Wave.src.Binding.BoundNodes
                 return BindConversion(c.Args[0], type, true, true);
 
             string name = c.Callee.Lexeme;
-            if (!_scope.TryLookupFn(name, out FunctionSymbol? fn) && fn is null)
+            if (!_scope.TryLookupFn(name, out FunctionSymbol[] fns) && !fns.Any())
             {
                 string bestMatch = FindBestMatch(name, _scope.GetFunctions().Select(f => f.Name));
                 _diagnostics.Report(c.Callee.Location, $"Could not find function \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
@@ -556,10 +554,22 @@ namespace Wave.src.Binding.BoundNodes
             }
 
             SourceText source = c.SyntaxTree.Source;
+            BoundExpr[] args = c.Args.Select(a => BindExpr(a)).ToArray();
+            FunctionSymbol? fn = fns.Length == 1 ? fns.First() : fns.SingleOrDefault(f => f.Parameters.Length == c.Args.Count && f.Parameters.Select(p => p.Type).SequenceEqual(args.Select(a => a.Type)));
+            fn ??= fns.FirstOrDefault(f => f.Parameters.Length == c.Args.Count);
+
+            int[] paramCounts = fns.Select(fn => fn.Parameters.Length).ToArray();
+            if (fn is null)
+            {
+                ImmutableArray<Node> nodes = c.Args.GetWithSeps();
+                _diagnostics.Report(new(source, TextSpan.From(nodes.First().Span.Start, nodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
+                return new BoundError();
+            }
+
             if (c.Args.Count > 0 && fn!.Parameters.Length == 0)
             {
                 ImmutableArray<Node> nodes = c.Args.GetWithSeps();
-                _diagnostics.Report(new(source, TextSpan.From(nodes.First().Span.Start, nodes.Last().Location.Span.End)), $"Wrong number of arguments; expected none - got \"{c.Args.Count}\".");
+                _diagnostics.Report(new(source, TextSpan.From(nodes.First().Span.Start, nodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
                 return new BoundError();
             }
 
@@ -573,7 +583,7 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundError();
             }
 
-            if (c.Args.Count == 0 && fn.Parameters.Length > 0)
+            if (c.Args.Count == 0 && fn!.Parameters.Length > 0)
             {
                 _diagnostics.Report(new(source, TextSpan.From(c.LParen.Span.Start, c.RParen.Span.End)), $"Wrong number of arguments; expected \"{fn.Parameters.Length}\" - got none.");
                 return new BoundError();
@@ -585,17 +595,17 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundError();
             }
 
-            ImmutableArray<BoundExpr>.Builder args = ImmutableArray.CreateBuilder<BoundExpr>();
+            ImmutableArray<BoundExpr>.Builder boundArgs = ImmutableArray.CreateBuilder<BoundExpr>();
             for (int i = 0; i < fn.Parameters.Length; ++i)
             {
                 ParameterSymbol param = fn.Parameters[i];
                 ExprNode rawArg = c.Args[i];
-                BoundExpr arg = BindExpr(rawArg);
-                args.Add(BindConversion(arg, param.Type, new(rawArg.Location.Source, rawArg.Span), false, false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.", null,
+                BoundExpr arg = args[i];
+                boundArgs.Add(BindConversion(arg, param.Type, new(rawArg.Location.Source, rawArg.Span), false, false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.", null,
                     $"\"{source[..rawArg.Span.Start]}{param.Type}({rawArg.Location.Text}){source[rawArg.Span.End..]}\""));
             }
 
-            return new BoundCall(fn, args.ToImmutable());
+            return new BoundCall(fn, boundArgs.ToImmutable());
         }
 
         private BoundExpr BindArrayExpr(ArrayExpr a)

@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Globalization;
+﻿using System.Globalization;
 using Wave.IO;
 using Wave.Source.Binding;
 using Wave.Source.Binding.BoundNodes;
@@ -11,7 +10,7 @@ namespace Wave
     {
         private readonly BoundProgram _program;
         private readonly Dictionary<VariableSymbol, object?> _globals;
-        private readonly ImmutableDictionary<FunctionSymbol, BoundBlockStmt> _functions;
+        private readonly Dictionary<FunctionSymbol, BoundBlockStmt> _functions = new();
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new();
         private readonly Random rnd = new();
         private object? _lastValue = null;
@@ -20,18 +19,17 @@ namespace Wave
             _program = program;
             _globals = variables;
             _locals.Push(new Dictionary<VariableSymbol, object?>());
-
-            ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Builder functions = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStmt>();
             BoundProgram? current = program;
+            KeyValuePair<FunctionSymbol, BoundBlockStmt>? evalFn = current.Functions.Any(fn => fn.Key.Name == "$eval") ? current.Functions.Single(fn => fn.Key.Name == "$eval") : null;
+            if (evalFn.HasValue)
+                _functions.Add(evalFn.Value.Key, evalFn.Value.Value);
+
             while (current is not null)
             {
-                foreach ((FunctionSymbol fn, BoundBlockStmt body) in current.Functions)
-                    functions.Add(fn, body);
-
+                foreach ((FunctionSymbol fn, BoundBlockStmt body) in current.Functions.Where(fn => fn.Key.Name != "$eval"))
+                    _functions.Add(fn, body);
                 current = current.Previous;
             }
-
-            _functions = functions.ToImmutable();
         }
 
         public object? Evaluate()
@@ -39,7 +37,6 @@ namespace Wave
             FunctionSymbol? fn = _program.MainFn ?? _program.ScriptFn;
             if (fn is null)
                 return null;
-
             return EvaluateStmt(_functions[fn]);
         }
 

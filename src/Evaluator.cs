@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Globalization;
+﻿using System.Globalization;
 using Wave.IO;
 using Wave.Source.Binding;
 using Wave.Source.Binding.BoundNodes;
@@ -11,12 +10,13 @@ namespace Wave
     {
         private readonly BoundProgram _program;
         private readonly Dictionary<VariableSymbol, object?> _globals;
+        private ClassInstance? _currentInstance = null;
         private readonly Dictionary<FunctionSymbol, BoundBlockStmt> _functions = new();
         private readonly Dictionary<string, ClassSymbol> _classes;
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new();
         private readonly Random rnd = new();
         private object? _lastValue = null;
-        public Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables, ImmutableArray<ClassSymbol> classes)
+        public Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables)
         {
             _program = program;
             _globals = variables;
@@ -33,7 +33,7 @@ namespace Wave
                 current = current.Previous;
             }
 
-            _classes = classes.ToDictionary(c => c.Name, c => c);
+            _classes = program.Classes.ToDictionary(c => c.Name, c => c);
         }
 
         public object? Evaluate()
@@ -356,19 +356,21 @@ namespace Wave
                 }
                 case BoundGet g:
                 {
-                    ClassInstance instance/* = (ClassInstance)(g.Id.Kind == SymbolKind.GlobalVariable
-                            ? _globals
-                            : _locals.Peek())[g.Id]!*/;
+                    if (g.Id is not null)
+                    {
+                        ClassInstance instance;
+                        if (g.Id.Kind == SymbolKind.GlobalVariable)
+                            instance = (ClassInstance)_globals.Single(v => v.Key.Name == g.Id.Name).Value!;
+                        else
+                            instance = (ClassInstance)_locals.Peek().Single(v => v.Key.Name == g.Id.Name).Value!;
+                        return instance.Fields[g.Field.Name];
+                    }
 
-                    if (g.Id.Kind == SymbolKind.GlobalVariable)
-                        instance = (ClassInstance)_globals.Single(v => v.Key.Name == g.Id.Name).Value!;
-                    else
-                        instance = (ClassInstance)_locals.Peek().Single(v => v.Key.Name == g.Id.Name).Value!;
-                    return instance.Fields[g.Field.Name];
+                    return _currentInstance!.Fields[g.Field.Name];
                 }
                 case BoundMethod m:
                 {
-                    ClassInstance instance = (ClassInstance)(m.Id.Kind == SymbolKind.GlobalVariable
+                    ClassInstance instance = m.Id is null ? _currentInstance! : (ClassInstance)(m.Id.Kind == SymbolKind.GlobalVariable
                             ? _globals
                             : _locals.Peek())[m.Id]!;
                     Dictionary<VariableSymbol, object?> locals = new();
@@ -379,19 +381,27 @@ namespace Wave
                     }
 
                     _locals.Push(locals);
+                    _currentInstance = instance;
                     object? res = EvaluateStmt(instance.Fns[m.Function.Name]);
                     _locals.Pop();
+                    instance = _currentInstance;
+                    _currentInstance = null;
                     return res;
                 }
                 case BoundSet s:
                 {
-                    ClassInstance oldV = (ClassInstance)(s.Id.Kind == SymbolKind.GlobalVariable
+                    if (s.Id is not null)
+                    {
+                        ClassInstance oldV = (ClassInstance)(s.Id.Kind == SymbolKind.GlobalVariable
                             ? _globals
                             : _locals.Peek())[s.Id]!;
-                    oldV.Fields[s.Field.Name] = EvaluateExpr(s.Value);
-                    return (s.Id.Kind == SymbolKind.GlobalVariable
-                            ? _globals
-                            : _locals.Peek())[s.Id] = oldV;
+                        oldV.Fields[s.Field.Name] = EvaluateExpr(s.Value);
+                        return (s.Id.Kind == SymbolKind.GlobalVariable
+                                ? _globals
+                                : _locals.Peek())[s.Id] = oldV;
+                    }
+
+                    return _currentInstance!.Fields[s.Field.Name] = EvaluateExpr(s.Value);
                 }
                 case BoundConversion c:
                 {

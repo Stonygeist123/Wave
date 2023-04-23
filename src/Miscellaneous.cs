@@ -161,12 +161,12 @@ namespace Wave
         }
     }
 
-    internal static class IDs
+    public static class IDs
     {
-        public static int InstanceID = 0;
+        public static int InstanceID { get; set; } = 0;
     }
 
-    internal class ClassInstance
+    public class ClassInstance
     {
         public ClassInstance(string name, Dictionary<string, BoundBlockStmt> fns, Dictionary<string, object?> fields)
         {

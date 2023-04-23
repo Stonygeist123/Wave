@@ -88,7 +88,7 @@ namespace Wave.Source.Compilation
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics, null);
 
-            Evaluator evaluator = new(program, variables, program.Classes);
+            Evaluator evaluator = new(program, variables);
             object? value = evaluator.Evaluate();
             return new(ImmutableArray<Diagnostic>.Empty, value);
         }

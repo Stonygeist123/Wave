@@ -174,6 +174,7 @@ namespace Wave.Source.Syntax.Nodes
         ArrayExpr,
         IndexingExpr,
         GetExpr,
+        MethodExpr,
         SetExpr,
 
         // Stmt

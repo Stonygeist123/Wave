@@ -305,6 +305,7 @@ namespace Wave.Source.Syntax
                 SyntaxKind.Float => new LiteralExpr(_syntaxTree, Advance()),
                 SyntaxKind.String => new LiteralExpr(_syntaxTree, Advance()),
                 SyntaxKind.Identifier => ParseIdentifier(),
+                SyntaxKind.Dot => ParseThisExpr(),
                 _ => ExpectedExpressionError()
             };
 
@@ -313,6 +314,34 @@ namespace Wave.Source.Syntax
                 expr = new IndexingExpr(_syntaxTree, expr, Advance(), ParseExpr(), Match(SyntaxKind.RBracket));
                 if (Current.Kind == SyntaxKind.Eq)
                     expr = new AssignmentExpr(_syntaxTree, expr, Advance(), ParseExpr());
+            }
+
+            return expr;
+        }
+
+        private ExprNode ParseThisExpr()
+        {
+            Token dot = Match(SyntaxKind.Dot);
+            Token field = Match(SyntaxKind.Identifier);
+            ExprNode expr = new GetExpr(_syntaxTree, null, dot, field);
+            if (Current.Kind == SyntaxKind.Eq)
+                return new SetExpr(_syntaxTree, null, dot, field, Advance(), ParseExpr());
+
+            if (Current.Kind == SyntaxKind.LParen)
+            {
+                Token lParen = Advance();
+                ImmutableArray<Node>.Builder args = ImmutableArray.CreateBuilder<Node>();
+                bool parseNextArg = true;
+                while (parseNextArg && Current.Kind != SyntaxKind.RParen && Current.Kind != SyntaxKind.Eof)
+                {
+                    args.Add(ParseExpr());
+                    if (Current.Kind == SyntaxKind.Comma)
+                        args.Add(Match(SyntaxKind.Comma));
+                    else
+                        parseNextArg = false;
+                }
+
+                expr = new MethodExpr(_syntaxTree, null, dot, field, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));
             }
 
             return expr;

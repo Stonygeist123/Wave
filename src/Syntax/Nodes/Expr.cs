@@ -145,10 +145,10 @@
     public sealed class GetExpr : ExprNode
     {
         public override SyntaxKind Kind => SyntaxKind.GetExpr;
-        public Token Id { get; }
+        public Token? Id { get; }
         public Token Dot { get; }
         public Token Field { get; }
-        public GetExpr(SyntaxTree syntaxTree, Token id, Token dot, Token field)
+        public GetExpr(SyntaxTree syntaxTree, Token? id, Token dot, Token field)
             : base(syntaxTree)
         {
             Id = id;
@@ -159,19 +159,19 @@
 
     public sealed class MethodExpr : ExprNode
     {
-        public override SyntaxKind Kind => SyntaxKind.GetExpr;
-        public Token Id { get; }
+        public override SyntaxKind Kind => SyntaxKind.MethodExpr;
+        public Token? Id { get; }
         public Token Dot { get; }
-        public Token Field { get; }
+        public Token Callee { get; }
         public Token LParen { get; }
         public SeparatedList<ExprNode> Args { get; }
         public Token RParen { get; }
-        public MethodExpr(SyntaxTree syntaxTree, Token id, Token dot, Token field, Token lParen, SeparatedList<ExprNode> args, Token rParen)
+        public MethodExpr(SyntaxTree syntaxTree, Token? id, Token dot, Token callee, Token lParen, SeparatedList<ExprNode> args, Token rParen)
             : base(syntaxTree)
         {
             Id = id;
             Dot = dot;
-            Field = field;
+            Callee = callee;
             LParen = lParen;
             Args = args;
             RParen = rParen;
@@ -181,19 +181,19 @@
     public sealed class SetExpr : ExprNode
     {
         public override SyntaxKind Kind => SyntaxKind.SetExpr;
-        public Token Id { get; }
+        public Token? Id { get; }
         public Token Dot { get; }
         public Token Field { get; }
         public Token EqToken { get; }
         public ExprNode Value { get; }
-        public SetExpr(SyntaxTree syntaxTree, Token id, Token dot, Token field, Token eqToken, ExprNode newValue)
+        public SetExpr(SyntaxTree syntaxTree, Token? id, Token dot, Token field, Token eqToken, ExprNode value)
             : base(syntaxTree)
         {
             Id = id;
             Dot = dot;
             Field = field;
             EqToken = eqToken;
-            Value = newValue;
+            Value = value;
         }
     }
 }

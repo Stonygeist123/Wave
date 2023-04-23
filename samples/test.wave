@@ -1,9 +1,13 @@
 ﻿class X {
-	fn a 3;
-	mut d = 4;
+	fn a .d = 6;
+	pub mut d = 4;
 }
 
 var mut x = X();
-print(x.d)
-x.d = 3
-print(x.d + x.a())
+print("d: " + x.d)
+x.a()
+print("d: " + x.d)
+x.d = 7;
+print("d: " + x.d)
+x.a()
+print("d: " + x.d)

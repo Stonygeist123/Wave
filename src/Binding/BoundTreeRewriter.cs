@@ -301,7 +301,7 @@ namespace Wave.Source.Binding
             BoundExpr v = RewriteExpr(node.Value);
             if (v == node.Value)
                 return node;
-            return new BoundSet(node.Type, node.Id, node.Field, node.Value);
+            return new BoundSet(node.Id, node.Field, node.Value);
         }
 
         private BoundExpr RewriteConversionExpr(BoundConversion node)

@@ -191,11 +191,11 @@ namespace Wave.Source.Binding.BoundNodes
     {
         public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.GetExpr;
-        public VariableSymbol Id { get; }
+        public VariableSymbol? Id { get; }
         public FieldSymbol Field { get; }
-        public BoundGet(TypeSymbol type, VariableSymbol id, FieldSymbol field)
+        public BoundGet(VariableSymbol? id, FieldSymbol field)
         {
-            Type = type;
+            Type = field.Type;
             Id = id;
             Field = field;
         }
@@ -205,10 +205,10 @@ namespace Wave.Source.Binding.BoundNodes
     {
         public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.MethodExpr;
-        public VariableSymbol Id { get; }
+        public VariableSymbol? Id { get; }
         public FunctionSymbol Function { get; }
         public ImmutableArray<BoundExpr> Args { get; }
-        public BoundMethod(VariableSymbol id, FunctionSymbol function, ImmutableArray<BoundExpr> args)
+        public BoundMethod(VariableSymbol? id, FunctionSymbol function, ImmutableArray<BoundExpr> args)
         {
             Type = function.Type;
             Id = id;
@@ -221,12 +221,12 @@ namespace Wave.Source.Binding.BoundNodes
     {
         public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.SetExpr;
-        public VariableSymbol Id { get; }
+        public VariableSymbol? Id { get; }
         public FieldSymbol Field { get; }
         public BoundExpr Value { get; }
-        public BoundSet(TypeSymbol type, VariableSymbol id, FieldSymbol field, BoundExpr value)
+        public BoundSet(VariableSymbol? id, FieldSymbol field, BoundExpr value)
         {
-            Type = type;
+            Type = field.Type;
             Id = id;
             Field = field;
             Value = value;

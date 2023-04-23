@@ -20,6 +20,13 @@ namespace Wave.Source.Binding
             return true;
         }
 
+        public bool TryLookupFn(string name, out FunctionSymbol[] functions)
+        {
+            ImmutableArray<FunctionSymbol> fns = GetFunctions();
+            functions = fns.Any(fn => fn.Name == name) ? fns.Where(f => f.Name == name).ToArray() : Array.Empty<FunctionSymbol>();
+            return functions.Any() || Parent is not null && Parent.TryLookupFn(name, out functions);
+        }
+
         public bool TryDeclareFn(FunctionSymbol fn)
         {
             if (TryLookupFn(fn.Name, out FunctionSymbol[] foundFns) && foundFns.Any(f => f == fn))
@@ -27,13 +34,6 @@ namespace Wave.Source.Binding
 
             _functions.Add(fn.GetHashCode().ToString(), fn);
             return true;
-        }
-
-        public bool TryLookupFn(string name, out FunctionSymbol[] functions)
-        {
-            ImmutableArray<FunctionSymbol> fns = GetFunctions();
-            functions = fns.Any(fn => fn.Name == name) ? fns.Where(f => f.Name == name).ToArray() : Array.Empty<FunctionSymbol>();
-            return functions.Any() || Parent is not null && Parent.TryLookupFn(name, out functions);
         }
 
         public bool TryLookupClass(string name, out ClassSymbol? c) => _classes.TryGetValue(name, out c) || Parent is not null && Parent.TryLookupClass(name, out c);

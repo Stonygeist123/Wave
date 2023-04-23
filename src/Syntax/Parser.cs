@@ -55,6 +55,8 @@ namespace Wave.Source.Syntax
         {
             if (Current.Kind == SyntaxKind.Fn)
                 return ParseFnDeclaration();
+            if (Current.Kind == SyntaxKind.Class)
+                return ParseClassDecl();
             return ParseGlobalStmt();
         }
 
@@ -72,7 +74,7 @@ namespace Wave.Source.Syntax
             return new(_syntaxTree, kw, name, parameters, typeClause, body);
         }
 
-        private ParameterNode ParseParameter() => new(_syntaxTree, Match(SyntaxKind.Identifier), ParseTypeClause(SyntaxKind.Colon));
+        private ParameterDecl ParseParameter() => new(_syntaxTree, Match(SyntaxKind.Identifier), ParseTypeClause(SyntaxKind.Colon));
         private ParameterList ParseParameterList()
         {
             Token lParen = Match(SyntaxKind.LParen);
@@ -87,7 +89,34 @@ namespace Wave.Source.Syntax
                     parseNextParam = false;
             }
 
-            return new(_syntaxTree, lParen, new SeparatedList<ParameterNode>(parameters.ToImmutable()), Match(SyntaxKind.RParen));
+            return new(_syntaxTree, lParen, new SeparatedList<ParameterDecl>(parameters.ToImmutable()), Match(SyntaxKind.RParen));
+        }
+
+        private ClassDeclStmt ParseClassDecl()
+        {
+            Token kw = Match(SyntaxKind.Class);
+            Token name = Match(SyntaxKind.Identifier);
+            Token lBrace = Match(SyntaxKind.LBrace);
+            ImmutableArray<FnDeclStmt>.Builder fnDecls = ImmutableArray.CreateBuilder<FnDeclStmt>();
+            ImmutableArray<FieldDecl>.Builder fieldDecls = ImmutableArray.CreateBuilder<FieldDecl>();
+            while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
+            {
+                if (Current.Kind == SyntaxKind.Fn)
+                    fnDecls.Add(ParseFnDeclaration());
+                else
+                {
+                    Token? accessibility = Current.Kind == SyntaxKind.Private || Current.Kind == SyntaxKind.Public ? Advance() : null;
+                    Token? mutKw = Current.Kind == SyntaxKind.Mut ? Advance() : null;
+                    Token fName = Match(SyntaxKind.Identifier);
+                    TypeClause? typeClause = ParseOptTypeClause(SyntaxKind.Colon);
+                    Token eqToken = Match(SyntaxKind.Eq);
+                    ExprNode value = ParseExpr();
+                    fieldDecls.Add(new(_syntaxTree, accessibility, mutKw, fName, typeClause, eqToken, value, Match(SyntaxKind.Semicolon)));
+                }
+            }
+
+            Token rBrace = Match(SyntaxKind.RBrace);
+            return new(_syntaxTree, kw, name, lBrace, fnDecls.ToImmutable(), fieldDecls.ToImmutable(), rBrace);
         }
 
         private StmtNode ParseStmt() => Current.Kind switch
@@ -321,11 +350,18 @@ namespace Wave.Source.Syntax
 
         private ExprNode ParseIdentifier()
         {
-            if (Current.Kind == SyntaxKind.Identifier && Peek(1).Kind == SyntaxKind.LParen)
+            Token id = Match(SyntaxKind.Identifier);
+            ExprNode expr = new NameExpr(_syntaxTree, id);
+            if (Current.Kind == SyntaxKind.Dot)
             {
+                expr = new GetExpr(_syntaxTree, id, Advance(), Match(SyntaxKind.Identifier));
+                if (Current.Kind == SyntaxKind.Eq)
+                    return new SetExpr(_syntaxTree, id, ((GetExpr)expr).Dot, ((GetExpr)expr).Field, Advance(), ParseExpr());
+            }
 
-                Token callee = Match(SyntaxKind.Identifier);
-                Token lParen = Match(SyntaxKind.LParen);
+            if (Current.Kind == SyntaxKind.LParen)
+            {
+                Token lParen = Advance();
                 ImmutableArray<Node>.Builder args = ImmutableArray.CreateBuilder<Node>();
                 bool parseNextArg = true;
                 while (parseNextArg && Current.Kind != SyntaxKind.RParen && Current.Kind != SyntaxKind.Eof)
@@ -337,10 +373,12 @@ namespace Wave.Source.Syntax
                         parseNextArg = false;
                 }
 
-                return new CallExpr(_syntaxTree, callee, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));
+                expr = expr is GetExpr g
+                    ? new MethodExpr(_syntaxTree, id, g.Dot, g.Field, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen))
+                    : new CallExpr(_syntaxTree, id, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));
             }
 
-            return new NameExpr(_syntaxTree, Match(SyntaxKind.Identifier));
+            return expr;
         }
 
         private ExprNode ExpectedExpressionError(Token? token = null)

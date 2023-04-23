@@ -15,6 +15,10 @@ namespace Wave.Source.Binding.BoundNodes
         ArrayExpr,
         IndexingExpr,
         ConversionExpr,
+        InstanceExpr,
+        GetExpr,
+        MethodExpr,
+        SetExpr,
         ErrorExpr,
 
         // Stmt
@@ -31,6 +35,7 @@ namespace Wave.Source.Binding.BoundNodes
         GotoStmt,
         CondGotoStmt,
         RetStmt,
+        ClassDecl,
         ErrorStmt
     }
 

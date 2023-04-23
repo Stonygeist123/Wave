@@ -36,11 +36,14 @@ namespace Wave.Source.Syntax
             "for" => SyntaxKind.For,
             "each" => SyntaxKind.Each,
             "fn" => SyntaxKind.Fn,
+            "class" => SyntaxKind.Class,
             "do" => SyntaxKind.Do,
             "break" => SyntaxKind.Break,
             "continue" => SyntaxKind.Continue,
             "ret" => SyntaxKind.Ret,
             "in" => SyntaxKind.In,
+            "pub" => SyntaxKind.Public,
+            "priv" => SyntaxKind.Private,
             _ => SyntaxKind.Identifier,
         };
 
@@ -74,6 +77,7 @@ namespace Wave.Source.Syntax
             SyntaxKind.Comma => ",",
             SyntaxKind.Semicolon => ";",
             SyntaxKind.Colon => ":",
+            SyntaxKind.Dot => ".",
             SyntaxKind.Arrow => "->",
             SyntaxKind.True => "true",
             SyntaxKind.False => "false",
@@ -83,11 +87,14 @@ namespace Wave.Source.Syntax
             SyntaxKind.For => "for",
             SyntaxKind.Each => "each",
             SyntaxKind.Fn => "fn",
+            SyntaxKind.Class => "class",
             SyntaxKind.Do => "do",
             SyntaxKind.Break => "break",
             SyntaxKind.Continue => "continue",
             SyntaxKind.Ret => "ret",
             SyntaxKind.In => "in",
+            SyntaxKind.Public => "pub",
+            SyntaxKind.Private => "priv",
             _ => null,
         };
     }

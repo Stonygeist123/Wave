@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Collections.Immutable;
+using System.Globalization;
 using Wave.IO;
 using Wave.Source.Binding;
 using Wave.Source.Binding.BoundNodes;
@@ -11,10 +12,11 @@ namespace Wave
         private readonly BoundProgram _program;
         private readonly Dictionary<VariableSymbol, object?> _globals;
         private readonly Dictionary<FunctionSymbol, BoundBlockStmt> _functions = new();
+        private readonly Dictionary<string, ClassSymbol> _classes;
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new();
         private readonly Random rnd = new();
         private object? _lastValue = null;
-        public Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables)
+        public Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables, ImmutableArray<ClassSymbol> classes)
         {
             _program = program;
             _globals = variables;
@@ -30,6 +32,8 @@ namespace Wave
                     _functions.Add(fn, body);
                 current = current.Previous;
             }
+
+            _classes = classes.ToDictionary(c => c.Name, c => c);
         }
 
         public object? Evaluate()
@@ -277,9 +281,9 @@ namespace Wave
                     break;
                 }
                 case BoundName n:
-                    return n.Variable.Kind == SymbolKind.GlobalVariable
-                            ? _globals[n.Variable]
-                            : _locals.Peek()[n.Variable];
+                    return (n.Variable.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[n.Variable];
                 case BoundAssignment a:
                     return (a.Variable.Kind == SymbolKind.GlobalVariable
                             ? _globals
@@ -302,9 +306,9 @@ namespace Wave
                 {
                     if (c.Function == BuiltInFunctions.Input)
                         return Console.ReadLine()!;
-                    else if (c.Function == BuiltInFunctions.Print)
+                    else if (c.Function == BuiltInFunctions.PrintS || c.Function == BuiltInFunctions.PrintI || c.Function == BuiltInFunctions.PrintF || c.Function == BuiltInFunctions.PrintB)
                     {
-                        Console.WriteLine(EvaluateExpr(c.Args[0]));
+                        Console.WriteLine(EvaluateExpr(c.Args[0]).Stringify());
                         return null;
                     }
                     else if (c.Function == BuiltInFunctions.Random)
@@ -342,6 +346,52 @@ namespace Wave
                         RuntimeException($"Index Out Of Range: An element with the index \"{index}\" does not exist that array.");
                         break;
                     }
+                }
+                case BoundInstance i:
+                {
+                    ClassSymbol c = _classes[i.Name];
+                    return new ClassInstance(i.Name,
+                        c.Fns.Select(fn => new KeyValuePair<string, BoundBlockStmt>(fn.Key.Name, fn.Value)).ToDictionary(x => x.Key, x => x.Value),
+                        c.Fields.Select(f => new KeyValuePair<string, object?>(f.Key.Name, EvaluateExpr(f.Value))).ToDictionary(x => x.Key, x => x.Value));
+                }
+                case BoundGet g:
+                {
+                    ClassInstance instance/* = (ClassInstance)(g.Id.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[g.Id]!*/;
+
+                    if (g.Id.Kind == SymbolKind.GlobalVariable)
+                        instance = (ClassInstance)_globals.Single(v => v.Key.Name == g.Id.Name).Value!;
+                    else
+                        instance = (ClassInstance)_locals.Peek().Single(v => v.Key.Name == g.Id.Name).Value!;
+                    return instance.Fields[g.Field.Name];
+                }
+                case BoundMethod m:
+                {
+                    ClassInstance instance = (ClassInstance)(m.Id.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[m.Id]!;
+                    Dictionary<VariableSymbol, object?> locals = new();
+                    for (int i = 0; i < m.Args.Length; ++i)
+                    {
+                        ParameterSymbol parameter = m.Function.Parameters[i];
+                        locals.Add(parameter, EvaluateExpr(m.Args[i]));
+                    }
+
+                    _locals.Push(locals);
+                    object? res = EvaluateStmt(instance.Fns[m.Function.Name]);
+                    _locals.Pop();
+                    return res;
+                }
+                case BoundSet s:
+                {
+                    ClassInstance oldV = (ClassInstance)(s.Id.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[s.Id]!;
+                    oldV.Fields[s.Field.Name] = EvaluateExpr(s.Value);
+                    return (s.Id.Kind == SymbolKind.GlobalVariable
+                            ? _globals
+                            : _locals.Peek())[s.Id] = oldV;
                 }
                 case BoundConversion c:
                 {

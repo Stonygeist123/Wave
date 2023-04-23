@@ -167,7 +167,10 @@ namespace Wave.Source.Syntax
                     break;
                 case '.':
                     if (_position + 1 >= _source.Length || !char.IsDigit(_source[_position + 1]))
-                        goto default;
+                    {
+                        ++_position;
+                        _kind = SyntaxKind.Dot;
+                    }
                     else
                         LexNumber();
                     break;

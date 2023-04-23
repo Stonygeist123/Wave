@@ -1,0 +1,9 @@
+﻿class X {
+	fn a 3;
+	mut d = 4;
+}
+
+var mut x = X();
+print(x.d)
+x.d = 3
+print(x.d + x.a())

@@ -168,11 +168,68 @@ namespace Wave.Source.Binding.BoundNodes
         public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.ConversionExpr;
         public BoundExpr Expr { get; }
-
         public BoundConversion(TypeSymbol type, BoundExpr expr)
         {
-            Type = new(type.Name, false);
+            Type = new(type.Name);
             Expr = expr;
+        }
+    }
+
+    public sealed class BoundInstance : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.InstanceExpr;
+        public string Name { get; }
+        public BoundInstance(string name)
+        {
+            Type = new(name, false, true);
+            Name = name;
+        }
+    }
+
+    public sealed class BoundGet : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.GetExpr;
+        public VariableSymbol Id { get; }
+        public FieldSymbol Field { get; }
+        public BoundGet(TypeSymbol type, VariableSymbol id, FieldSymbol field)
+        {
+            Type = type;
+            Id = id;
+            Field = field;
+        }
+    }
+
+    public sealed class BoundMethod : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.MethodExpr;
+        public VariableSymbol Id { get; }
+        public FunctionSymbol Function { get; }
+        public ImmutableArray<BoundExpr> Args { get; }
+        public BoundMethod(VariableSymbol id, FunctionSymbol function, ImmutableArray<BoundExpr> args)
+        {
+            Type = function.Type;
+            Id = id;
+            Function = function;
+            Args = args;
+        }
+    }
+
+    public sealed class BoundSet : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.SetExpr;
+        public VariableSymbol Id { get; }
+        public FieldSymbol Field { get; }
+        public BoundExpr Value { get; }
+        public BoundSet(TypeSymbol type, VariableSymbol id, FieldSymbol field, BoundExpr value)
+        {
+            Type = type;
+            Id = id;
+            Field = field;
+            Value = value;
         }
     }
 

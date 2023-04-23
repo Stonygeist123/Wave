@@ -18,7 +18,6 @@
     {
         public GlobalVariableSymbol(string name, TypeSymbol type, bool isMut)
             : base(name, type, isMut) { }
-
         public override SymbolKind Kind => SymbolKind.GlobalVariable;
     }
 
@@ -26,7 +25,6 @@
     {
         public LocalVariableSymbol(string name, TypeSymbol type, bool isMut)
             : base(name, type, isMut) { }
-
         public override SymbolKind Kind => SymbolKind.LocalVariable;
     }
 
@@ -34,7 +32,20 @@
     {
         public ParameterSymbol(string name, TypeSymbol type)
             : base(name, type, false) { }
-
         public override SymbolKind Kind => SymbolKind.Parameter;
+    }
+
+    public enum Accessibility
+    {
+        Pub,
+        Priv
+    }
+
+    public sealed class FieldSymbol : LocalVariableSymbol
+    {
+        public FieldSymbol(string name, TypeSymbol type, Accessibility accessibility, bool isMut)
+            : base(name, type, isMut) => Accessibility = accessibility;
+        public override SymbolKind Kind => SymbolKind.Parameter;
+        public Accessibility Accessibility { get; }
     }
 }

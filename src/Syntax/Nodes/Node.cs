@@ -122,6 +122,7 @@ namespace Wave.Source.Syntax.Nodes
         Comma,
         Semicolon,
         Colon,
+        Dot,
         Arrow,
         Bad,
         Eof,
@@ -144,18 +145,23 @@ namespace Wave.Source.Syntax.Nodes
         For,
         Each,
         Fn,
+        Class,
         Continue,
         Break,
         Ret,
         In,
+        Public,
+        Private,
 
         // Nodes
         CompilationUnit,
         FnDecl,
+        ClassDecl,
         GlobalStmt,
         ElseClause,
         TypeClause,
-        ParameterSyntax,
+        ParameterDecl,
+        FieldDecl,
 
         // Expr
         LiteralExpr,
@@ -167,6 +173,8 @@ namespace Wave.Source.Syntax.Nodes
         CallExpr,
         ArrayExpr,
         IndexingExpr,
+        GetExpr,
+        SetExpr,
 
         // Stmt
         ExpressionStmt,

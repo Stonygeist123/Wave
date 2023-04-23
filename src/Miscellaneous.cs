@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Wave.Source.Binding.BoundNodes;
 
 namespace Wave
 {
@@ -137,19 +138,49 @@ namespace Wave
     {
         public static string? Stringify(this object? v)
         {
-            if (v is Array arr)
+            switch (v)
             {
-                string res = "[";
-                IEnumerable<object> en = Enumerable.Cast<object>(arr);
-                if (arr.Length > 0)
-                    res += Stringify(en.First()) ?? "";
+                case Array arr:
+                {
+                    string res = "[";
+                    IEnumerable<object> en = arr.Cast<object>();
+                    if (arr.Length > 0)
+                        res += en.First().Stringify() ?? "";
 
-                for (int i = 1; i < arr.Length; ++i)
-                    res += ", " + Stringify((object?)en.ElementAt(i));
-                return res + "]";
+                    for (int i = 1; i < arr.Length; ++i)
+                        res += ", " + ((object?)en.ElementAt(i)).Stringify();
+                    return res + "]";
+                }
+                case bool b:
+                    return b ? "true" : "false";
+                case ClassInstance c:
+                    return c.ToString();
+                default:
+                    return Convert.ToString(v);
             }
-
-            return Convert.ToString(v);
         }
+    }
+
+    internal static class IDs
+    {
+        public static int InstanceID = 0;
+    }
+
+    internal class ClassInstance
+    {
+        public ClassInstance(string name, Dictionary<string, BoundBlockStmt> fns, Dictionary<string, object?> fields)
+        {
+            Name = name;
+            Fns = fns;
+            Fields = fields;
+            _id = IDs.InstanceID++;
+        }
+
+        public string Name { get; }
+        public Dictionary<string, BoundBlockStmt> Fns { get; }
+        public Dictionary<string, object?> Fields { get; }
+        private readonly int _id;
+        public override int GetHashCode() => _id;
+        public override string ToString() => Name;
     }
 }

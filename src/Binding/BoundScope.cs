@@ -8,7 +8,9 @@ namespace Wave.Source.Binding
     {
         private readonly Dictionary<string, VariableSymbol> _variables = new();
         private readonly Dictionary<string, FunctionSymbol> _functions = new();
+        private readonly Dictionary<string, ClassSymbol> _classes = new();
         public BoundScope(BoundScope? parent) => Parent = parent;
+        public bool TryLookupVar(string name, out VariableSymbol? variable) => _variables.TryGetValue(name, out variable) || Parent is not null && Parent.TryLookupVar(name, out variable);
         public bool TryDeclareVar(VariableSymbol variable, bool force = false)
         {
             if (TryLookupVar(variable.Name, out _) && !force)
@@ -18,21 +20,12 @@ namespace Wave.Source.Binding
             return true;
         }
 
-        public bool TryLookupVar(string name, out VariableSymbol? variable)
-        {
-            if (_variables.TryGetValue(name, out variable))
-                return true;
-            if (Parent is null)
-                return false;
-            return Parent.TryLookupVar(name, out variable);
-        }
-
         public bool TryDeclareFn(FunctionSymbol fn)
         {
-            if (TryLookupFn(fn.Name, out FunctionSymbol[]? foundFn) && foundFn.Any(f => f == fn))
+            if (TryLookupFn(fn.Name, out FunctionSymbol[] foundFns) && foundFns.Any(f => f == fn))
                 return false;
 
-            _functions.Add(fn.Name, fn);
+            _functions.Add(fn.GetHashCode().ToString(), fn);
             return true;
         }
 
@@ -43,8 +36,19 @@ namespace Wave.Source.Binding
             return functions.Any() || Parent is not null && Parent.TryLookupFn(name, out functions);
         }
 
+        public bool TryLookupClass(string name, out ClassSymbol? c) => _classes.TryGetValue(name, out c) || Parent is not null && Parent.TryLookupClass(name, out c);
+        public bool TryDeclareClass(ClassSymbol c)
+        {
+            if (TryLookupClass(c.Name, out ClassSymbol? foundClass) && foundClass is not null)
+                return false;
+
+            _classes.Add(c.Name, c);
+            return true;
+        }
+
         public ImmutableArray<VariableSymbol> GetDeclaredVars() => _variables.Values.ToImmutableArray();
         public ImmutableArray<FunctionSymbol> GetDeclaredFns() => _functions.Values.ToImmutableArray();
+        public ImmutableArray<ClassSymbol> GetDeclaredClasses() => _classes.Values.ToImmutableArray();
         public ImmutableArray<VariableSymbol> GetVariables()
         {
             ImmutableArray<VariableSymbol>.Builder vars = ImmutableArray.CreateBuilder<VariableSymbol>();
@@ -53,11 +57,10 @@ namespace Wave.Source.Binding
             {
                 foreach (VariableSymbol v in scope.GetDeclaredVars())
                     vars.Add(v);
-
                 scope = scope.Parent;
             }
 
-            return vars.ToImmutableArray();
+            return vars.ToImmutable();
         }
 
         public ImmutableArray<FunctionSymbol> GetFunctions()
@@ -68,11 +71,24 @@ namespace Wave.Source.Binding
             {
                 foreach (FunctionSymbol fn in scope.GetDeclaredFns())
                     fns.Add(fn);
-
                 scope = scope.Parent;
             }
 
-            return fns.ToImmutableArray();
+            return fns.ToImmutable();
+        }
+
+        public ImmutableArray<ClassSymbol> GetClasses()
+        {
+            ImmutableArray<ClassSymbol>.Builder classes = ImmutableArray.CreateBuilder<ClassSymbol>();
+            BoundScope? scope = this;
+            while (scope is not null)
+            {
+                foreach (ClassSymbol c in scope.GetDeclaredClasses())
+                    classes.Add(c);
+                scope = scope.Parent;
+            }
+
+            return classes.ToImmutable();
         }
 
         public BoundScope? Parent { get; }
@@ -80,7 +96,7 @@ namespace Wave.Source.Binding
 
     public sealed class BoundGlobalScope
     {
-        public BoundGlobalScope(BoundGlobalScope? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, BoundBlockStmt stmt, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, ImmutableArray<Diagnostic> diagnostics)
+        public BoundGlobalScope(BoundGlobalScope? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, BoundBlockStmt stmt, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, ImmutableArray<ClassSymbol> classes, ImmutableArray<Diagnostic> diagnostics)
         {
             Previous = previous;
             MainFn = mainFn;
@@ -88,6 +104,7 @@ namespace Wave.Source.Binding
             Stmt = stmt;
             Variables = variables;
             Functions = functions;
+            Classes = classes;
             Diagnostics = diagnostics;
         }
 
@@ -97,6 +114,7 @@ namespace Wave.Source.Binding
         public BoundBlockStmt Stmt { get; }
         public ImmutableArray<VariableSymbol> Variables { get; }
         public ImmutableArray<FunctionSymbol> Functions { get; }
+        public ImmutableArray<ClassSymbol> Classes { get; }
         public ImmutableArray<Diagnostic> Diagnostics { get; }
     }
 }

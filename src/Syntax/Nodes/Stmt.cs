@@ -81,7 +81,7 @@ namespace Wave.Source.Syntax.Nodes
 
     public sealed class WhileStmt : StmtNode
     {
-        public WhileStmt(SyntaxTree syntaxTree, Token keyword, ExprNode condition, StmtNode stmt)
+        public WhileStmt(SyntaxTree syntaxTree, Token keyword, ExprNode? condition, StmtNode stmt)
             : base(syntaxTree)
         {
             Keyword = keyword;
@@ -91,26 +91,28 @@ namespace Wave.Source.Syntax.Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ElseClause;
         public Token Keyword { get; }
-        public ExprNode Condition { get; }
+        public ExprNode? Condition { get; }
         public StmtNode Stmt { get; }
     }
 
     public sealed class DoWhileStmt : StmtNode
     {
-        public DoWhileStmt(SyntaxTree syntaxTree, Token keyword, StmtNode stmt, Token whileKeyword, ExprNode condition)
+        public DoWhileStmt(SyntaxTree syntaxTree, Token keyword, StmtNode stmt, Token whileKeyword, ExprNode? condition, Token? semicolon)
             : base(syntaxTree)
         {
             Keyword = keyword;
             Stmt = stmt;
             WhileKeyword = whileKeyword;
             Condition = condition;
+            Semicolon = semicolon;
         }
 
         public override SyntaxKind Kind => SyntaxKind.ElseClause;
         public Token Keyword { get; }
         public StmtNode Stmt { get; }
         public Token WhileKeyword { get; }
-        public ExprNode Condition { get; }
+        public ExprNode? Condition { get; }
+        public Token? Semicolon { get; }
     }
 
     public sealed class ForStmt : StmtNode

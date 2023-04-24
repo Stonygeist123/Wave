@@ -259,3 +259,65 @@ fn x -> int {
 General:
 ret [<expr>];
 ```
+
+#### Function (fn)
+```
+Examples:
+fn x -> int {
+	ret 42;
+}
+
+General:
+fn <id>[([<id>: <type>[, ...]])]] [-> <type>] <stmt | expr;>
+```
+
+#### Class (class)
+```
+Examples:
+class X {
+	fn a .d 4;
+	pub mut d = 3;
+}
+
+General:
+class <id> {
+	[<fn>|<field>...]
+}
+```
+
+##### Field (field)
+```
+General:
+[pub|priv] [mut] <id>: <type> = <expr>;
+```
+
+#### Get (get)
+```
+Examples:
+class X {
+	fn a .d 4;
+}
+
+General:
+<id>.<id>
+```
+
+#### Method (method)
+```
+Examples:
+var x = X();
+x.a()
+
+General:
+<id>.<id>([<expr>[, ...]])
+```
+
+#### Set (set)
+```
+Examples:
+var x = X();
+x.d = 4
+
+General:
+<id>.<id> = <expr>
+```

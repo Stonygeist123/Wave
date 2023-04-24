@@ -283,7 +283,7 @@ namespace Wave
                 case BoundName n:
                     return (n.Variable.Kind == SymbolKind.GlobalVariable
                             ? _globals
-                            : _locals.Peek())[n.Variable];
+                            : _locals.Peek()).Single(v => v.Key.Name == n.Variable.Name).Value;
                 case BoundAssignment a:
                     return (a.Variable.Kind == SymbolKind.GlobalVariable
                             ? _globals
@@ -309,6 +309,16 @@ namespace Wave
                     else if (c.Function == BuiltInFunctions.PrintS || c.Function == BuiltInFunctions.PrintI || c.Function == BuiltInFunctions.PrintF || c.Function == BuiltInFunctions.PrintB)
                     {
                         Console.WriteLine(EvaluateExpr(c.Args[0]).Stringify());
+                        return null;
+                    }
+                    else if (c.Function == BuiltInFunctions.PrintEmpty)
+                    {
+                        Console.WriteLine();
+                        return null;
+                    }
+                    else if (c.Function == BuiltInFunctions.Clear)
+                    {
+                        Console.Clear();
                         return null;
                     }
                     else if (c.Function == BuiltInFunctions.Random)
@@ -384,7 +394,6 @@ namespace Wave
                     _currentInstance = instance;
                     object? res = EvaluateStmt(instance.Fns[m.Function.Name]);
                     _locals.Pop();
-                    instance = _currentInstance;
                     _currentInstance = null;
                     return res;
                 }

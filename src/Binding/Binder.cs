@@ -184,6 +184,14 @@ namespace Wave.src.Binding.BoundNodes
                     fields.Add(new(f.Name.Lexeme, t, f.Accessibility is null || f.Accessibility.Kind == SyntaxKind.Public ? Accessibility.Pub : Accessibility.Priv, f.MutKeyword is not null), v);
             }
 
+            _scope = new BoundScope(_scope);
+            ImmutableDictionary<FunctionSymbol, BoundBlockStmt> fnsOld;
+            foreach (FnDeclStmt fnDecl in cd.FnDecls)
+                BindFnDecl(fnDecl);
+
+            fnsOld = _scope.GetDeclaredFns().ToImmutableDictionary(x => x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty));
+            _scope = _scope.Parent!;
+
             ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Builder fns = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStmt>();
             foreach (FnDeclStmt fnDecl in cd.FnDecls)
             {
@@ -246,9 +254,16 @@ namespace Wave.src.Binding.BoundNodes
                 else
                 {
                     _scope = new(_scope);
-                    _fn = new(fnNameT.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, fnDecl, name);
-                    _scope.TryDeclareClass(new(name, fns.ToImmutable(), fields.ToImmutable()));
-                    fns.Add(new(fnNameT.Lexeme, parameters.ToImmutable(), fnType, fnDecl, cd.Name.Lexeme), Lowerer.Lower(BindStmtInternal(fnDecl.Body)));
+                    _fn = new(fnNameT.Lexeme, parameters.ToImmutable(), fnType, fnDecl, name);
+                    _scope.TryDeclareClass(new(name, fnsOld, fields.ToImmutable()));
+                    foreach (ParameterSymbol parameter in parameters.ToImmutable())
+                        _scope.TryDeclareVar(parameter);
+
+                    BoundBlockStmt loweredBody = Lowerer.Lower(BindStmtInternal(fnDecl.Body));
+                    fns.Add(new(fnNameT.Lexeme, parameters.ToImmutable(), fnType, fnDecl, cd.Name.Lexeme), loweredBody);
+                    if (fnType != TypeSymbol.Void && !AllPathsReturn(loweredBody) && fnDecl!.Body.Kind != SyntaxKind.ExpressionStmt)
+                        _diagnostics.Report(fnDecl.Name.Location, $"All code paths must return a value.");
+
                     _fn = null;
                     _scope = _scope.Parent!;
                 }
@@ -374,7 +389,7 @@ namespace Wave.src.Binding.BoundNodes
 
         private BoundWhileStmt BindWhileStmt(WhileStmt w)
         {
-            BoundExpr condition = BindExpr(w.Condition, TypeSymbol.Bool);
+            BoundExpr condition = w.Condition is null ? new BoundLiteral(true) : BindExpr(w.Condition, TypeSymbol.Bool);
             BoundStmt stmt = BoundLoopStmt(w.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             return new(condition, stmt, bodyLabel, breakLabel, continueLabel);
         }
@@ -382,7 +397,7 @@ namespace Wave.src.Binding.BoundNodes
         private BoundDoWhileStmt BindDoWhileStmt(DoWhileStmt d)
         {
             BoundStmt stmt = BoundLoopStmt(d.Stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
-            BoundExpr condition = BindExpr(d.Condition, TypeSymbol.Bool);
+            BoundExpr condition = d.Condition is null ? new BoundLiteral(true) : BindExpr(d.Condition, TypeSymbol.Bool);
             return new(stmt, condition, bodyLabel, breakLabel, continueLabel);
         }
 

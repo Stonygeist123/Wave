@@ -186,7 +186,7 @@ namespace Wave.Source.Syntax
         private WhileStmt ParseWhileStmt()
         {
             Token kw = Match(SyntaxKind.While);
-            ExprNode condition = ParseExpr();
+            ExprNode? condition = Current.Kind == SyntaxKind.LBrace ? null : ParseExpr();
             StmtNode stmt = ParseStmt();
             return new(_syntaxTree, kw, condition, stmt);
         }
@@ -196,8 +196,12 @@ namespace Wave.Source.Syntax
             Token kw = Match(SyntaxKind.Do);
             StmtNode stmt = ParseStmt();
             Token whileKw = Match(SyntaxKind.While);
-            ExprNode condition = ParseExpr();
-            return new(_syntaxTree, kw, stmt, whileKw, condition);
+            ExprNode? condition = Current.Kind == SyntaxKind.Semicolon ? null : ParseExpr();
+            Token? semi = null;
+            if (condition is null)
+                semi = Match(SyntaxKind.Semicolon);
+
+            return new(_syntaxTree, kw, stmt, whileKw, condition, semi);
         }
 
         private StmtNode ParseForStmt()

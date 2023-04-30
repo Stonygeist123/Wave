@@ -70,7 +70,6 @@ namespace Wave.Source.Syntax
             StmtNode body = ParseStmt();
             if (body.Kind == SyntaxKind.ExpressionStmt && Peek(-1).Kind != SyntaxKind.Semicolon)
                 Match(SyntaxKind.Semicolon, $"A semicolon is expected after a function declaration when the body is an expression.");
-
             return new(_syntaxTree, kw, name, parameters, typeClause, body);
         }
 
@@ -99,10 +98,25 @@ namespace Wave.Source.Syntax
             Token lBrace = Match(SyntaxKind.LBrace);
             ImmutableArray<FnDeclStmt>.Builder fnDecls = ImmutableArray.CreateBuilder<FnDeclStmt>();
             ImmutableArray<FieldDecl>.Builder fieldDecls = ImmutableArray.CreateBuilder<FieldDecl>();
+            CtorDeclStmt? ctor = null;
+
             while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
             {
                 if (Current.Kind == SyntaxKind.Fn)
-                    fnDecls.Add(ParseFnDeclaration());
+                {
+                    if (Peek(1).Lexeme == name.Lexeme)
+                    {
+                        Token fnKw = Advance();
+                        Token fnName = Advance();
+                        ParameterList? parameters = Current.Kind == SyntaxKind.LParen ? ParseParameterList() : null;
+                        StmtNode body = ParseStmt();
+                        if (body.Kind == SyntaxKind.ExpressionStmt && Peek(-1).Kind != SyntaxKind.Semicolon)
+                            Match(SyntaxKind.Semicolon, $"A semicolon is expected after a function declaration when the body is an expression.");
+                        ctor = new(_syntaxTree, fnKw, fnName, parameters, body);
+                    }
+                    else
+                        fnDecls.Add(ParseFnDeclaration());
+                }
                 else
                 {
                     Token? accessibility = Current.Kind == SyntaxKind.Private || Current.Kind == SyntaxKind.Public ? Advance() : null;
@@ -115,8 +129,7 @@ namespace Wave.Source.Syntax
                 }
             }
 
-            Token rBrace = Match(SyntaxKind.RBrace);
-            return new(_syntaxTree, kw, name, lBrace, fnDecls.ToImmutable(), fieldDecls.ToImmutable(), rBrace);
+            return new(_syntaxTree, kw, name, lBrace, ctor, fnDecls.ToImmutable(), fieldDecls.ToImmutable(), Match(SyntaxKind.RBrace));
         }
 
         private StmtNode ParseStmt() => Current.Kind switch

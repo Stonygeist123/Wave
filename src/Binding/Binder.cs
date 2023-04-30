@@ -192,6 +192,39 @@ namespace Wave.src.Binding.BoundNodes
             fnsOld = _scope.GetDeclaredFns().ToImmutableDictionary(x => x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty));
             _scope = _scope.Parent!;
 
+            KeyValuePair<CtorSymbol, BoundBlockStmt>? ctor = null;
+            if (cd.Ctor is not null)
+            {
+                ImmutableArray<ParameterSymbol>.Builder ctorParameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
+                if (cd.Ctor.Parameters is not null)
+                {
+                    HashSet<string> seenParameters = new();
+                    foreach (ParameterDecl param in cd.Ctor.Parameters.Parameters)
+                    {
+                        string pName = param.Id.Lexeme;
+                        if (!seenParameters.Add(pName))
+                            _diagnostics.Report(param.Id.Location, $"Parameter \"{pName}\" was already declared.");
+                        else
+                        {
+                            TypeSymbol? pType = BindTypeClause(param.Type);
+                            if (pType is null)
+                                _diagnostics.Report(param.Type.Id.Location, $"Expected type.", "\": <type>\".");
+                            else
+                                ctorParameters.Add(new ParameterSymbol(pName, pType));
+                        }
+                    }
+                }
+
+                _scope = new(_scope);
+                _scope.TryDeclareClass(new(name, null, ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Empty, fields.ToImmutable()));
+                foreach (ParameterSymbol parameter in ctorParameters.ToImmutable())
+                    _scope.TryDeclareVar(parameter);
+
+                BoundBlockStmt loweredCtorBody = Lowerer.Lower(BindStmtInternal(cd.Ctor.Body));
+                ctor = new(new(ctorParameters.ToImmutable(), name, cd.Ctor), loweredCtorBody);
+                _scope = _scope.Parent!;
+            }
+
             ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Builder fns = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStmt>();
             foreach (FnDeclStmt fnDecl in cd.FnDecls)
             {
@@ -229,8 +262,9 @@ namespace Wave.src.Binding.BoundNodes
                     foreach ((FunctionSymbol fn, BoundBlockStmt e) in fns)
                         _scope.TryDeclareFn(fn);
 
+
                     _fn = new(fnNameT.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, fnDecl, name);
-                    _scope.TryDeclareClass(new(name, fns.ToImmutable(), fields.ToImmutable()));
+                    _scope.TryDeclareClass(new(name, ctor, fns.ToImmutable(), fields.ToImmutable()));
                     boundExpr = BindExpr(((ExpressionStmt)fnDecl.Body).Expr, true);
                     _fn = null;
                     _scope = _scope.Parent!;
@@ -255,7 +289,7 @@ namespace Wave.src.Binding.BoundNodes
                 {
                     _scope = new(_scope);
                     _fn = new(fnNameT.Lexeme, parameters.ToImmutable(), fnType, fnDecl, name);
-                    _scope.TryDeclareClass(new(name, fnsOld, fields.ToImmutable()));
+                    _scope.TryDeclareClass(new(name, ctor, fnsOld, fields.ToImmutable()));
                     foreach (ParameterSymbol parameter in parameters.ToImmutable())
                         _scope.TryDeclareVar(parameter);
 
@@ -268,8 +302,7 @@ namespace Wave.src.Binding.BoundNodes
                     _scope = _scope.Parent!;
                 }
             }
-
-            ClassSymbol c = new(name, fns.ToImmutable(), fields.ToImmutable());
+            ClassSymbol c = new(name, ctor, fns.ToImmutable(), fields.ToImmutable());
             if (!_scope.TryDeclareClass(c))
                 _diagnostics.Report(cd.Name.Location, $"Class \"{name}\" was already declared.");
         }
@@ -1007,13 +1040,13 @@ namespace Wave.src.Binding.BoundNodes
             return variable;
         }
 
-        private static TypeSymbol? LookupType(string name) => name switch
+        private TypeSymbol? LookupType(string name) => name switch
         {
             "bool" => TypeSymbol.Bool,
             "int" => TypeSymbol.Int,
             "float" => TypeSymbol.Float,
             "string" => TypeSymbol.String,
             _ => null,
-        };
+        } ?? (_scope.TryLookupClass(name, out _) ? new TypeSymbol(name, false, true) : null);
     }
 }

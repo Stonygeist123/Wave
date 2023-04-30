@@ -48,11 +48,11 @@ namespace Wave.Source.Syntax.Nodes
 
     public sealed class FnDeclStmt : MemberNode
     {
-        public FnDeclStmt(SyntaxTree syntaxTree, Token keyword, Token id, ParameterList? parameters, TypeClause? typeClause, StmtNode body)
+        public FnDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, ParameterList? parameters, TypeClause? typeClause, StmtNode body)
             : base(syntaxTree)
         {
             Keyword = keyword;
-            Name = id;
+            Name = name;
             Parameters = parameters;
             TypeClause = typeClause;
             Body = body;
@@ -62,6 +62,24 @@ namespace Wave.Source.Syntax.Nodes
         public Token Name { get; }
         public ParameterList? Parameters { get; }
         public TypeClause? TypeClause { get; }
+        public StmtNode Body { get; }
+        public override SyntaxKind Kind => SyntaxKind.FnDecl;
+    }
+
+    public sealed class CtorDeclStmt : MemberNode
+    {
+        public CtorDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, ParameterList? parameters, StmtNode body)
+            : base(syntaxTree)
+        {
+            Keyword = keyword;
+            Name = name;
+            Parameters = parameters;
+            Body = body;
+        }
+
+        public Token Keyword { get; }
+        public Token Name { get; }
+        public ParameterList? Parameters { get; }
         public StmtNode Body { get; }
         public override SyntaxKind Kind => SyntaxKind.FnDecl;
     }
@@ -92,12 +110,13 @@ namespace Wave.Source.Syntax.Nodes
 
     public sealed class ClassDeclStmt : MemberNode
     {
-        public ClassDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, ImmutableArray<FnDeclStmt> fnDecls, ImmutableArray<FieldDecl> fieldDecls, Token rBrace)
+        public ClassDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, CtorDeclStmt? ctor, ImmutableArray<FnDeclStmt> fnDecls, ImmutableArray<FieldDecl> fieldDecls, Token rBrace)
             : base(syntaxTree)
         {
             Keyword = keyword;
             Name = name;
             LBrace = lBrace;
+            Ctor = ctor;
             FnDecls = fnDecls;
             FieldDecls = fieldDecls;
             RBrace = rBrace;
@@ -106,6 +125,7 @@ namespace Wave.Source.Syntax.Nodes
         public Token Keyword { get; }
         public Token Name { get; }
         public Token LBrace { get; }
+        public CtorDeclStmt? Ctor { get; }
         public ImmutableArray<FnDeclStmt> FnDecls { get; }
         public ImmutableArray<FieldDecl> FieldDecls { get; }
         public Token RBrace { get; }

@@ -360,9 +360,16 @@ namespace Wave
                 case BoundInstance i:
                 {
                     ClassSymbol c = _classes[i.Name];
-                    return new ClassInstance(i.Name,
+                    ClassInstance instance = new(i.Name,
                         c.Fns.Select(fn => new KeyValuePair<string, BoundBlockStmt>(fn.Key.Name, fn.Value)).ToDictionary(x => x.Key, x => x.Value),
                         c.Fields.Select(f => new KeyValuePair<string, object?>(f.Key.Name, EvaluateExpr(f.Value))).ToDictionary(x => x.Key, x => x.Value));
+                    ClassInstance? before = _currentInstance;
+                    _currentInstance = instance;
+                    if (c.Ctor is not null)
+                        EvaluateStmt(c.Ctor.Value.Value);
+
+                    _currentInstance = before;
+                    return instance;
                 }
                 case BoundGet g:
                 {

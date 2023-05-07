@@ -132,6 +132,48 @@ General:
 <expr>[<expr>]
 ```
 
+#### Get (get)
+```
+Examples:
+class X {
+	pub y = 4;
+}
+
+var x = X();
+print(x.y);
+
+General:
+[id].<id>
+```
+
+#### Method (method)
+```
+Examples:
+class X {
+	pub a 4;
+}
+
+var x = X();
+x.a()
+
+General:
+[id].<id>([<expr>[, ...]])
+```
+
+#### Set (set)
+```
+Examples:
+class X {
+	pub mut y = 4;
+}
+
+var x = X();
+x.y = 7
+
+General:
+[id].<id> = <expr>
+```
+
 ### Statements (stmt)
 #### Expression (expr_s)
 ```
@@ -291,33 +333,10 @@ General:
 [pub|priv] [mut] <id>: <type> = <expr>;
 ```
 
-#### Get (get)
+##### ADT (adt)
 ```
-Examples:
-class X {
-	fn a .d 4;
+General:
+type <id> {
+	<id>[, <id>...]
 }
-
-General:
-<id>.<id>
-```
-
-#### Method (method)
-```
-Examples:
-var x = X();
-x.a()
-
-General:
-<id>.<id>([<expr>[, ...]])
-```
-
-#### Set (set)
-```
-Examples:
-var x = X();
-x.d = 4
-
-General:
-<id>.<id> = <expr>
 ```

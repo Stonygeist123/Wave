@@ -128,14 +128,14 @@
     public sealed class IndexingExpr : ExprNode
     {
         public override SyntaxKind Kind => SyntaxKind.IndexingExpr;
-        public ExprNode Array { get; }
+        public ExprNode Expr { get; }
         public Token LBracket { get; }
         public ExprNode Index { get; }
         public Token RBracket { get; }
-        public IndexingExpr(SyntaxTree syntaxTree, ExprNode array, Token lBracket, ExprNode index, Token rBracket)
+        public IndexingExpr(SyntaxTree syntaxTree, ExprNode expr, Token lBracket, ExprNode index, Token rBracket)
             : base(syntaxTree)
         {
-            Array = array;
+            Expr = expr;
             LBracket = lBracket;
             Index = index;
             RBracket = rBracket;

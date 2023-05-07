@@ -152,13 +152,26 @@ namespace Wave.Source.Binding.BoundNodes
 
     public sealed class BoundIndexing : BoundExpr
     {
-        public override TypeSymbol Type => new(Array.Type.Name, false);
+        public override TypeSymbol Type => new(Expr.Type.Name, false);
         public override BoundNodeKind Kind => BoundNodeKind.IndexingExpr;
-        public BoundExpr Array { get; }
+        public BoundExpr Expr { get; }
         public BoundExpr Index { get; }
-        public BoundIndexing(BoundExpr array, BoundExpr index)
+        public BoundIndexing(BoundExpr expr, BoundExpr index)
         {
-            Array = array;
+            Expr = expr;
+            Index = index;
+        }
+    }
+
+    public sealed class BoundEnumIndexing : BoundExpr
+    {
+        public override TypeSymbol Type => TypeSymbol.String;
+        public override BoundNodeKind Kind => BoundNodeKind.EnumIndexingExpr;
+        public ADTSymbol ADT { get; }
+        public BoundExpr Index { get; }
+        public BoundEnumIndexing(ADTSymbol adt, BoundExpr index)
+        {
+            ADT = adt;
             Index = index;
         }
     }
@@ -180,10 +193,27 @@ namespace Wave.Source.Binding.BoundNodes
         public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.InstanceExpr;
         public string Name { get; }
-        public BoundInstance(string name)
+        public ImmutableArray<BoundExpr> Args { get; }
+        public BoundInstance(string name, ImmutableArray<BoundExpr> args)
         {
             Type = new(name, false, true);
             Name = name;
+            Args = args;
+        }
+    }
+
+    public sealed class BoundEnumGet : BoundExpr
+    {
+        public override TypeSymbol Type { get; }
+        public override BoundNodeKind Kind => BoundNodeKind.EnumGetExpr;
+        public ADTSymbol EnumSymbol { get; }
+        public string Member { get; }
+
+        public BoundEnumGet(ADTSymbol enumSymbol, string member)
+        {
+            Type = new(enumSymbol.Name, false, false, true);
+            EnumSymbol = enumSymbol;
+            Member = member;
         }
     }
 
@@ -206,9 +236,9 @@ namespace Wave.Source.Binding.BoundNodes
         public override TypeSymbol Type { get; }
         public override BoundNodeKind Kind => BoundNodeKind.MethodExpr;
         public VariableSymbol? Id { get; }
-        public FunctionSymbol Function { get; }
+        public MethodSymbol Function { get; }
         public ImmutableArray<BoundExpr> Args { get; }
-        public BoundMethod(VariableSymbol? id, FunctionSymbol function, ImmutableArray<BoundExpr> args)
+        public BoundMethod(VariableSymbol? id, MethodSymbol function, ImmutableArray<BoundExpr> args)
         {
             Type = function.Type;
             Id = id;

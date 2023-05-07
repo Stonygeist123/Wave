@@ -27,6 +27,8 @@ namespace Wave.Source.Compilation
         public FunctionSymbol? MainFn => GlobalScope.MainFn;
         public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
         public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
+        public ImmutableArray<ClassSymbol> Classes => GlobalScope.Classes;
+        public ImmutableArray<ADTSymbol> ADTs => GlobalScope.ADTs;
         public bool IsScript { get; }
         public Compilation? Previous { get; }
         public ImmutableArray<SyntaxTree> SyntaxTrees { get; }

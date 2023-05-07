@@ -152,11 +152,13 @@ namespace Wave.Source.Syntax.Nodes
         In,
         Public,
         Private,
+        Type,
 
         // Nodes
         CompilationUnit,
         FnDecl,
         ClassDecl,
+        ADTDecl,
         GlobalStmt,
         ElseClause,
         TypeClause,

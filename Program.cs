@@ -48,7 +48,7 @@ namespace Wave
 
         private static string ReplaceImportStmt(string text, string startPath, string beforePath) => ImportStmtRegex().Replace(text, delegate (Match m)
                                                                          {
-                                                                             string path = m.Value.Remove(0, 6).Replace("\"", string.Empty).TrimStart()[..^1];
+                                                                             string path = Path.GetFullPath(m.Value.Remove(0, 6).Replace("\"", string.Empty).TrimStart()[..^1]);
                                                                              SourceText src = SourceText.From(text, $"{startPath} -> {beforePath}");
                                                                              if (!File.Exists(path))
                                                                              {

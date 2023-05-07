@@ -34,8 +34,10 @@ namespace Wave.Source.Binding
                 BoundNodeKind.ArrayAssignmentExpr => RewriteArrayAssignmentExpr((BoundArrayAssignment)node),
                 BoundNodeKind.CallExpr => RewriteCallExpr((BoundCall)node),
                 BoundNodeKind.ArrayExpr => RewriteArrayExpr((BoundArray)node),
+                BoundNodeKind.EnumIndexingExpr => RewriteEnumIndexingExpr((BoundEnumIndexing)node),
                 BoundNodeKind.IndexingExpr => RewriteIndexingExpr((BoundIndexing)node),
                 BoundNodeKind.InstanceExpr => RewriteInstanceExpr((BoundInstance)node),
+                BoundNodeKind.EnumGetExpr => RewriteEnumGetExpr((BoundEnumGet)node),
                 BoundNodeKind.GetExpr => RewriteGetExpr((BoundGet)node),
                 BoundNodeKind.MethodExpr => RewriteMethodExpr((BoundMethod)node),
                 BoundNodeKind.SetExpr => RewriteSetExpr((BoundSet)node),
@@ -261,14 +263,24 @@ namespace Wave.Source.Binding
         protected virtual BoundExpr RewriteInstanceExpr(BoundInstance node) => node;
         protected virtual BoundExpr RewriteIndexingExpr(BoundIndexing node)
         {
-            BoundExpr array = RewriteExpr(node.Array);
+            BoundExpr expr = RewriteExpr(node.Expr);
             BoundExpr index = RewriteExpr(node.Index);
-            if (index == node.Index && array == node.Array)
+            if (index == node.Index && expr == node.Expr)
                 return node;
 
-            return new BoundIndexing(array, index);
+            return new BoundIndexing(expr, index);
         }
 
+        protected virtual BoundExpr RewriteEnumIndexingExpr(BoundEnumIndexing node)
+        {
+            BoundExpr index = RewriteExpr(node.Index);
+            if (index == node.Index)
+                return node;
+
+            return new BoundEnumIndexing(node.ADT, index);
+        }
+
+        protected virtual BoundExpr RewriteEnumGetExpr(BoundEnumGet node) => node;
         protected virtual BoundExpr RewriteGetExpr(BoundGet node) => node;
         protected virtual BoundExpr RewriteMethodExpr(BoundMethod node)
         {

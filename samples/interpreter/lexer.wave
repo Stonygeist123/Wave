@@ -1,0 +1,109 @@
+﻿type TokenKind {
+	Plus,
+	Minus,
+	Star,
+	Slash,
+	Number,
+	Space,
+	Bad
+}
+
+class Token {
+	pub mut lexeme = "";
+	pub mut kind = TokenKind.Bad;
+	pub fn(lexeme: string, kind: TokenKind) {
+		.lexeme = lexeme;
+		.kind = kind;
+	}
+
+	pub fn str "Lexeme: " + .lexeme + "\nKind: " + TokenKind[.kind];
+}
+
+class Lexer {
+	pub src: string = "";
+	priv mut cur: int = 0;
+	pub fn(src: string) .src = src;
+	pub fn lex -> Token[] {
+		var mut tokens = [<Token>];
+		while .cur < +.src {
+			var t: Token = .tokenize();
+			if t.kind != TokenKind.Space
+				tokens = tokens + t;
+		}
+
+		ret tokens;
+	}
+
+	priv fn tokenize -> Token {
+		var mut c = .peek();
+		var mut kind = TokenKind.Bad;
+		var mut lexeme = c;
+		if c == "+"
+		{
+			.advance()
+			kind = TokenKind.Plus
+		}
+		else if c == "-"
+		{
+			.advance()
+			kind = TokenKind.Minus
+		}
+		else if c == "*"
+		{
+			.advance()
+			kind = TokenKind.Star
+		}
+		else if c == "/"
+		{
+			.advance()
+			kind = TokenKind.Slash
+		}
+		else if c == "1" || c == "2" || c == "3" || c == "4" || c == "5" || c == "6" || c == "7" || c == "8" || c == "9"
+		{
+			lexeme = ""
+			kind = TokenKind.Number
+			while c == "0" || c == "1" || c == "2" || c == "3" || c == "4" || c == "5" || c == "6" || c == "7" || c == "8" || c == "9"
+			{
+				c = .peek()
+				lexeme = lexeme + c;
+				.advance()
+			}
+
+			if .peek() == "."
+			{
+				.advance()
+				lexeme = lexeme + c;
+				while c == "0" || c == "1" || c == "2" || c == "3" || c == "4" || c == "5" || c == "6" || c == "7" || c == "8" || c == "9"
+				{
+					c = .peek()
+					lexeme = lexeme + c;
+					.advance()
+				}
+			}
+		}
+		else if c == " "
+		{
+			.advance()
+			kind = TokenKind.Space
+		}
+		else
+			.advance()
+
+		ret Token(lexeme, kind);
+	}
+	
+	priv fn peek -> string
+		if .cur < +.src
+			ret .src[.cur];
+		else
+			ret "";
+
+	priv fn advance .cur = .cur + 1;
+}
+
+while {
+	var l = Lexer(input());
+	var tokens = l.lex();
+	for each t in tokens
+		print(t.str() + "\n")
+}

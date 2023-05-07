@@ -1,5 +1,7 @@
 ﻿class Calculator {
-	fn start {
+	pub mut .x = 3;
+
+	fn .start {
 		print("\n\n\nInput a number!")
 		var x = float(input());
 		clear()
@@ -21,7 +23,7 @@
 		print("Result of " + x + " " + op + " " + y + ": " + .calc(x, op, y))
 	}
 
-	fn calc(x: float, op: string, y: float) -> float
+	fn .calc(x: float, op: string, y: float) -> float
 		if op == "+"
 			ret x + y;
 		else if op == "-"
@@ -33,7 +35,7 @@
 		else ret 0;
 }
 
-var c = Calculator();
+
 while {
-	c.start()
+	Calculator.start()
 }

@@ -66,9 +66,18 @@ namespace Wave
                     case BoundVarStmt v:
                     {
                         object? value = EvaluateExpr(v.Value);
-                        (v.Variable.Kind == SymbolKind.GlobalVariable
-                        ? _globals
-                        : _locals.Peek()).Add(v.Variable, value);
+                        if (!(v.Variable.Kind == SymbolKind.GlobalVariable
+                              ? _globals
+                              : _locals.Peek()).TryAdd(v.Variable, value))
+                        {
+                            (v.Variable.Kind == SymbolKind.GlobalVariable
+                              ? _globals
+                              : _locals.Peek()).Remove(v.Variable);
+                            (v.Variable.Kind == SymbolKind.GlobalVariable
+                              ? _globals
+                              : _locals.Peek()).Add(v.Variable, value);
+                        }
+
                         ++index;
                         break;
                     }
@@ -117,14 +126,21 @@ namespace Wave
                         };
                     }
 
-                    return u.Op.Kind switch
-                    {
-                        BoundUnOpKind.Plus => (int)v,
-                        BoundUnOpKind.Minus => -(int)v,
-                        BoundUnOpKind.Bang => !(bool)v,
-                        BoundUnOpKind.Inv => ~(int)v,
-                        _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
-                    };
+                    if (v is string s)
+                        return u.Op.Kind switch
+                        {
+                            BoundUnOpKind.Plus => s.Length,
+                            _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
+                        };
+                    else
+                        return u.Op.Kind switch
+                        {
+                            BoundUnOpKind.Plus => (int)v,
+                            BoundUnOpKind.Minus => -(int)v,
+                            BoundUnOpKind.Bang => !(bool)v,
+                            BoundUnOpKind.Inv => ~(int)v,
+                            _ => throw new Exception($"Unexpected unary operator \"{u.Op}\".")
+                        };
                 }
                 case BoundBinary b:
                 {
@@ -149,6 +165,16 @@ namespace Wave
                         object?[] v = b.Op.Kind switch
                         {
                             BoundBinOpKind.Plus => ((object?[])right).Prepend(left).ToArray(),
+                            _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
+                        };
+                        return v;
+                    }
+                    else if (b.Left.Type.IsADT)
+                    {
+                        object v = b.Op.Kind switch
+                        {
+                            BoundBinOpKind.EqEq => left == right,
+                            BoundBinOpKind.NotEq => left != right,
                             _ => throw new Exception($"Unexpected binary operator \"{b.Op}\".")
                         };
                         return v;
@@ -344,12 +370,18 @@ namespace Wave
                 }
                 case BoundArray a:
                     return a.Elements.Select(EvaluateExpr).ToArray();
+                case BoundEnumIndexing ei:
+                {
+                    object? index = EvaluateExpr(ei.Index)!;
+                    return ei.ADT.Members.Keys.ElementAt(ei.ADT.Members.Values.ToList().FindIndex(v => EvaluateExpr(v) == index));
+                }
                 case BoundIndexing i:
                 {
                     int index = (int)EvaluateExpr(i.Index)!;
                     try
                     {
-                        return EvaluateExpr(i.Array) is not Array array ? null : Enumerable.Cast<object>(array).ElementAt(index);
+                        object v = EvaluateExpr(i.Expr)!;
+                        return i.Expr.Type.IsArray ? Enumerable.Cast<object>((Array)v).ElementAt(index) : (i.Expr.Type == TypeSymbol.String ? ((string)v)[index].ToString() : null);
                     }
                     catch (IndexOutOfRangeException)
                     {
@@ -363,16 +395,34 @@ namespace Wave
                     ClassInstance instance = new(i.Name,
                         c.Fns.Select(fn => new KeyValuePair<string, BoundBlockStmt>(fn.Key.Name, fn.Value)).ToDictionary(x => x.Key, x => x.Value),
                         c.Fields.Select(f => new KeyValuePair<string, object?>(f.Key.Name, EvaluateExpr(f.Value))).ToDictionary(x => x.Key, x => x.Value));
-                    ClassInstance? before = _currentInstance;
-                    _currentInstance = instance;
                     if (c.Ctor is not null)
-                        EvaluateStmt(c.Ctor.Value.Value);
+                    {
+                        Dictionary<VariableSymbol, object?> locals = new();
+                        for (int j = 0; j < i.Args.Length; ++j)
+                        {
+                            ParameterSymbol parameter = c.Ctor.Value.Key.Parameters[j];
+                            locals.Add(parameter, EvaluateExpr(i.Args[j]));
+                        }
 
-                    _currentInstance = before;
+                        _locals.Push(locals);
+
+                        ClassInstance? before = _currentInstance;
+                        _currentInstance = instance;
+                        EvaluateStmt(c.Ctor.Value.Value);
+                        _currentInstance = before;
+
+                        _locals.Pop();
+                    }
+
                     return instance;
                 }
+                case BoundEnumGet eg:
+                    return EvaluateExpr(eg.EnumSymbol.Members[eg.Member]);
                 case BoundGet g:
                 {
+                    if (g.Field.IsStatic)
+                        return EvaluateExpr(_classes[g.Field.ClassName].Fields[g.Field]);
+
                     if (g.Id is not null)
                     {
                         ClassInstance instance;
@@ -387,25 +437,49 @@ namespace Wave
                 }
                 case BoundMethod m:
                 {
-                    ClassInstance instance = m.Id is null ? _currentInstance! : (ClassInstance)(m.Id.Kind == SymbolKind.GlobalVariable
-                            ? _globals
-                            : _locals.Peek())[m.Id]!;
-                    Dictionary<VariableSymbol, object?> locals = new();
-                    for (int i = 0; i < m.Args.Length; ++i)
+                    if (m.Function.IsStatic && _currentInstance is null)
                     {
-                        ParameterSymbol parameter = m.Function.Parameters[i];
-                        locals.Add(parameter, EvaluateExpr(m.Args[i]));
-                    }
+                        Dictionary<VariableSymbol, object?> locals = new();
+                        for (int i = 0; i < m.Args.Length; ++i)
+                        {
+                            ParameterSymbol parameter = m.Function.Parameters[i];
+                            locals.Add(parameter, EvaluateExpr(m.Args[i]));
+                        }
 
-                    _locals.Push(locals);
-                    _currentInstance = instance;
-                    object? res = EvaluateStmt(instance.Fns[m.Function.Name]);
-                    _locals.Pop();
-                    _currentInstance = null;
-                    return res;
+                        _locals.Push(locals);
+                        object? res = EvaluateStmt(_classes[m.Function.ClassName!].Fns.Single(fn => fn.Key.Name == m.Function.Name && fn.Key.Parameters.Select(p => p.Type).SequenceEqual(m.Function.Parameters.Select(p => p.Type))).Value);
+                        _locals.Pop();
+                        return res;
+                    }
+                    else
+                    {
+
+                        ClassInstance instance = m.Id is null ? _currentInstance! : (ClassInstance)(m.Id.Kind == SymbolKind.GlobalVariable
+                                ? _globals
+                                : _locals.Peek())[m.Id]!;
+                        Dictionary<VariableSymbol, object?> locals = new();
+                        for (int i = 0; i < m.Args.Length; ++i)
+                        {
+                            ParameterSymbol parameter = m.Function.Parameters[i];
+                            locals.Add(parameter, EvaluateExpr(m.Args[i]));
+                        }
+
+                        _locals.Push(locals);
+
+                        ClassInstance? before = _currentInstance;
+                        _currentInstance = instance;
+                        object? res = EvaluateStmt(instance.Fns[m.Function.Name]);
+                        _currentInstance = before;
+
+                        _locals.Pop();
+                        return res;
+                    }
                 }
                 case BoundSet s:
                 {
+                    if (s.Field.IsStatic)
+                        return EvaluateExpr(_classes[s.Field.ClassName].Fields[s.Field] = s.Value);
+
                     if (s.Id is not null)
                     {
                         ClassInstance oldV = (ClassInstance)(s.Id.Kind == SymbolKind.GlobalVariable

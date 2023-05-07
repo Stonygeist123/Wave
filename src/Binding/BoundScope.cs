@@ -9,6 +9,7 @@ namespace Wave.Source.Binding
         private readonly Dictionary<string, VariableSymbol> _variables = new();
         private readonly Dictionary<string, FunctionSymbol> _functions = new();
         private readonly Dictionary<string, ClassSymbol> _classes = new();
+        private readonly Dictionary<string, ADTSymbol> _enums = new();
         public BoundScope(BoundScope? parent) => Parent = parent;
         public bool TryLookupVar(string name, out VariableSymbol? variable) => _variables.TryGetValue(name, out variable) || Parent is not null && Parent.TryLookupVar(name, out variable);
         public bool TryDeclareVar(VariableSymbol variable, bool force = false)
@@ -46,9 +47,20 @@ namespace Wave.Source.Binding
             return true;
         }
 
+        public bool TryLookupEnum(string name, out ADTSymbol? e) => _enums.TryGetValue(name, out e) || Parent is not null && Parent.TryLookupEnum(name, out e);
+        public bool TryDeclareADT(ADTSymbol e)
+        {
+            if (TryLookupEnum(e.Name, out ADTSymbol? foundEnum) && foundEnum is not null)
+                return false;
+
+            _enums.Add(e.Name, e);
+            return true;
+        }
+
         public ImmutableArray<VariableSymbol> GetDeclaredVars() => _variables.Values.ToImmutableArray();
         public ImmutableArray<FunctionSymbol> GetDeclaredFns() => _functions.Values.ToImmutableArray();
         public ImmutableArray<ClassSymbol> GetDeclaredClasses() => _classes.Values.ToImmutableArray();
+        public ImmutableArray<ADTSymbol> GetDeclaredEnums() => _enums.Values.ToImmutableArray();
         public ImmutableArray<VariableSymbol> GetVariables()
         {
             ImmutableArray<VariableSymbol>.Builder vars = ImmutableArray.CreateBuilder<VariableSymbol>();
@@ -91,12 +103,26 @@ namespace Wave.Source.Binding
             return classes.ToImmutable();
         }
 
+        public ImmutableArray<ADTSymbol> GetEnums()
+        {
+            ImmutableArray<ADTSymbol>.Builder enums = ImmutableArray.CreateBuilder<ADTSymbol>();
+            BoundScope? scope = this;
+            while (scope is not null)
+            {
+                foreach (ADTSymbol e in scope.GetDeclaredEnums())
+                    enums.Add(e);
+                scope = scope.Parent;
+            }
+
+            return enums.ToImmutable();
+        }
+
         public BoundScope? Parent { get; }
     }
 
     public sealed class BoundGlobalScope
     {
-        public BoundGlobalScope(BoundGlobalScope? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, BoundBlockStmt stmt, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, ImmutableArray<ClassSymbol> classes, ImmutableArray<Diagnostic> diagnostics)
+        public BoundGlobalScope(BoundGlobalScope? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, BoundBlockStmt stmt, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, ImmutableArray<ClassSymbol> classes, ImmutableArray<ADTSymbol> enums, ImmutableArray<Diagnostic> diagnostics)
         {
             Previous = previous;
             MainFn = mainFn;
@@ -105,6 +131,7 @@ namespace Wave.Source.Binding
             Variables = variables;
             Functions = functions;
             Classes = classes;
+            ADTs = enums;
             Diagnostics = diagnostics;
         }
 
@@ -115,6 +142,7 @@ namespace Wave.Source.Binding
         public ImmutableArray<VariableSymbol> Variables { get; }
         public ImmutableArray<FunctionSymbol> Functions { get; }
         public ImmutableArray<ClassSymbol> Classes { get; }
+        public ImmutableArray<ADTSymbol> ADTs { get; }
         public ImmutableArray<Diagnostic> Diagnostics { get; }
     }
 }

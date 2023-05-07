@@ -8,6 +8,9 @@
         Type,
         Parameter,
         Function,
+        Method,
+        Class,
+        ADT,
         Label
     }
 

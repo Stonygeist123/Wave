@@ -11,11 +11,11 @@ namespace Wave.src.Binding.BoundNodes
 {
     public class Binder
     {
+        public DiagnosticBag Diagnostics => _diagnostics;
+        private readonly DiagnosticBag _diagnostics = new();
         private readonly bool _isScript;
         private FunctionSymbol? _fn;
-        private readonly DiagnosticBag _diagnostics = new();
         private BoundScope _scope;
-        public DiagnosticBag Diagnostics => _diagnostics;
         private readonly Stack<(LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _loopStack = new();
         private int _labelCounter = 0;
         public Binder(bool isScript, BoundScope? parent, FunctionSymbol? fn)
@@ -32,6 +32,10 @@ namespace Wave.src.Binding.BoundNodes
         {
             BoundScope parentScope = CreateParentScope(previous);
             Binder binder = new(isScript, parentScope, null);
+            IEnumerable<EnumDeclStmt> enumDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<EnumDeclStmt>();
+            foreach (EnumDeclStmt enumDecl in enumDecls)
+                binder.BindEnumDecl(enumDecl);
+
             IEnumerable<FnDeclStmt> fnDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<FnDeclStmt>();
             foreach (FnDeclStmt fnDecl in fnDecls)
                 binder.BindFnDecl(fnDecl);
@@ -81,10 +85,9 @@ namespace Wave.src.Binding.BoundNodes
             }
 
             ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
-            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVars();
             if (previous is not null)
                 diagnostics.InsertRange(0, previous.Diagnostics);
-            return new(previous, mainFn, scriptFn, new BoundBlockStmt(stmts.ToImmutable()), variables, functions, binder._scope.GetDeclaredClasses(), diagnostics);
+            return new(previous, mainFn, scriptFn, new BoundBlockStmt(stmts.ToImmutable()), binder._scope.GetDeclaredVars(), functions, binder._scope.GetDeclaredClasses(), binder._scope.GetDeclaredEnums(), diagnostics);
         }
 
         public static BoundProgram BindProgram(bool isScript, BoundProgram? previous, BoundGlobalScope globalScope)
@@ -114,10 +117,10 @@ namespace Wave.src.Binding.BoundNodes
                 fnBodies.Add(globalScope.ScriptFn, Lowerer.Lower(new BoundBlockStmt(stmts)));
             }
 
-            return new(previous, globalScope.MainFn, globalScope.ScriptFn, diagnostics.ToImmutableArray(), fnBodies.ToImmutable(), scope.Classes);
+            return new(previous, globalScope.MainFn, globalScope.ScriptFn, diagnostics.ToImmutableArray(), fnBodies.ToImmutable(), scope.Classes, scope.ADTs);
         }
 
-        private void BindFnDecl(FnDeclStmt decl)
+        private void BindFnDecl(FnDeclStmt decl, string? className = null, bool isStatic = false, ClassSymbol? classSymbol = null)
         {
             ImmutableArray<ParameterSymbol>.Builder parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
             if (decl.Parameters is not null)
@@ -146,7 +149,16 @@ namespace Wave.src.Binding.BoundNodes
                 foreach (ParameterSymbol parameter in parameters.ToImmutable())
                     _scope.TryDeclareVar(parameter);
 
+                if (className is not null)
+                    _fn = new MethodSymbol(decl.Name.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, className, decl.Accessibility is null || decl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, decl, isStatic);
+                else
+                    _fn = new FunctionSymbol(decl.Name.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, decl);
+
+                if (classSymbol is not null)
+                    _scope.TryDeclareClass(classSymbol);
+
                 boundExpr = BindExpr(((ExpressionStmt)decl!.Body).Expr, true);
+                _fn = null;
                 _scope = _scope.Parent!;
             }
 
@@ -164,7 +176,7 @@ namespace Wave.src.Binding.BoundNodes
                 _diagnostics.Report(decl!.Body.Location, $"Expected a value with type of \"{fnType}\" - got \"{boundExpr.Type}\".");
 
             Token name = decl.Name;
-            FunctionSymbol fn = new(name.Lexeme, parameters.ToImmutable(), fnType, decl);
+            FunctionSymbol fn = className is null ? new FunctionSymbol(name.Lexeme, parameters.ToImmutable(), fnType, decl) : new MethodSymbol(name.Lexeme, parameters.ToImmutable(), fnType, className, Accessibility.Pub, decl, decl.StaticDot is not null);
             if (!_scope.TryDeclareFn(fn))
                 _diagnostics.Report(name.Location, $"Function \"{name.Lexeme}\" was already declared with those parameters.");
         }
@@ -172,7 +184,7 @@ namespace Wave.src.Binding.BoundNodes
         private void BindClassDecl(ClassDeclStmt cd)
         {
             string name = cd.Name.Lexeme;
-            ImmutableDictionary<FieldSymbol, BoundExpr>.Builder fields = ImmutableDictionary.CreateBuilder<FieldSymbol, BoundExpr>();
+            Dictionary<FieldSymbol, BoundExpr> fields = new();
             foreach (FieldDecl f in cd.FieldDecls)
             {
                 BoundExpr v = BindExpr(f.Value);
@@ -181,16 +193,8 @@ namespace Wave.src.Binding.BoundNodes
                 if (fields.Any(f1 => f1.Key.Name == f.Name.Lexeme))
                     _diagnostics.Report(f.Name.Location, $"Field \"{f.Name.Lexeme}\" was already declared in class \"{name}\".");
                 else
-                    fields.Add(new(f.Name.Lexeme, t, f.Accessibility is null || f.Accessibility.Kind == SyntaxKind.Public ? Accessibility.Pub : Accessibility.Priv, f.MutKeyword is not null), v);
+                    fields.Add(new(f.Name.Lexeme, t, f.Accessibility is null || f.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, f.MutKeyword is not null, f.StaticDot is not null, name), v);
             }
-
-            _scope = new BoundScope(_scope);
-            ImmutableDictionary<FunctionSymbol, BoundBlockStmt> fnsOld;
-            foreach (FnDeclStmt fnDecl in cd.FnDecls)
-                BindFnDecl(fnDecl);
-
-            fnsOld = _scope.GetDeclaredFns().ToImmutableDictionary(x => x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty));
-            _scope = _scope.Parent!;
 
             KeyValuePair<CtorSymbol, BoundBlockStmt>? ctor = null;
             if (cd.Ctor is not null)
@@ -216,18 +220,29 @@ namespace Wave.src.Binding.BoundNodes
                 }
 
                 _scope = new(_scope);
-                _scope.TryDeclareClass(new(name, null, ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Empty, fields.ToImmutable()));
+                _scope.TryDeclareClass(new(name, null, ImmutableDictionary<MethodSymbol, BoundBlockStmt>.Empty, fields));
                 foreach (ParameterSymbol parameter in ctorParameters.ToImmutable())
                     _scope.TryDeclareVar(parameter);
 
+                _fn = new MethodSymbol("", _scope.GetDeclaredVars().Cast<ParameterSymbol>().ToImmutableArray(), TypeSymbol.Void, name, Accessibility.Pub, null);
                 BoundBlockStmt loweredCtorBody = Lowerer.Lower(BindStmtInternal(cd.Ctor.Body));
-                ctor = new(new(ctorParameters.ToImmutable(), name, cd.Ctor), loweredCtorBody);
+                _fn = null;
+                ctor = new(new(ctorParameters.ToImmutable(), name, cd.Ctor.Accessibility is null || cd.Ctor.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, cd.Ctor), loweredCtorBody);
                 _scope = _scope.Parent!;
             }
 
-            ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Builder fns = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStmt>();
+            _scope = new BoundScope(_scope);
+            foreach (FnDeclStmt fnDecl in cd.FnDecls)
+                BindFnDecl(fnDecl, name, fnDecl.StaticDot is not null,
+                    new(name, ctor, _scope.GetDeclaredFns().ToImmutableDictionary(x => (MethodSymbol)x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty)), fields));
+
+            ImmutableDictionary<MethodSymbol, BoundBlockStmt> fnsOld = _scope.GetDeclaredFns().ToImmutableDictionary(x => (MethodSymbol)x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty));
+            _scope = _scope.Parent!;
+
+            ImmutableDictionary<MethodSymbol, BoundBlockStmt>.Builder fns = ImmutableDictionary.CreateBuilder<MethodSymbol, BoundBlockStmt>();
             foreach (FnDeclStmt fnDecl in cd.FnDecls)
             {
+                bool isStatic = fnDecl.StaticDot is not null;
                 ImmutableArray<ParameterSymbol>.Builder parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
                 if (fnDecl.Parameters is not null)
                 {
@@ -248,7 +263,7 @@ namespace Wave.src.Binding.BoundNodes
                     }
                 }
 
-                Token fnNameT = fnDecl.Name;
+                Token fnName = fnDecl.Name;
                 BoundExpr? boundExpr = null;
                 if (fnDecl.Body.Kind == SyntaxKind.ExpressionStmt)
                 {
@@ -262,9 +277,8 @@ namespace Wave.src.Binding.BoundNodes
                     foreach ((FunctionSymbol fn, BoundBlockStmt e) in fns)
                         _scope.TryDeclareFn(fn);
 
-
-                    _fn = new(fnNameT.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, fnDecl, name);
-                    _scope.TryDeclareClass(new(name, ctor, fns.ToImmutable(), fields.ToImmutable()));
+                    _fn = new MethodSymbol(fnName.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic);
+                    _scope.TryDeclareClass(new(name, ctor, fns.ToImmutable(), fields));
                     boundExpr = BindExpr(((ExpressionStmt)fnDecl.Body).Expr, true);
                     _fn = null;
                     _scope = _scope.Parent!;
@@ -283,28 +297,42 @@ namespace Wave.src.Binding.BoundNodes
                 if (boundExpr is not null && (!Conversion.Classify(boundExpr.Type, fnType).IsImplicit || (fnType.IsArray && !boundExpr.Type.IsArray)))
                     _diagnostics.Report(fnDecl!.Body.Location, $"Expected a value with type of \"{fnType}\" - got \"{boundExpr.Type}\".");
 
-                if (fns.Any(f => f.Key.Name == fnNameT.Lexeme && f.Key.Parameters.Select(p => p.Type).SequenceEqual(parameters.ToImmutable().Select(p => p.Type)) && f.Key.Parameters.Select(p => p.Type.IsArray).SequenceEqual(parameters.ToImmutable().Select(p => p.Type.IsArray))))
-                    _diagnostics.Report(fnNameT.Location, $"Function \"{fnNameT.Lexeme}\" with those parameters was already declared in class \"{name}\".");
+                if (fns.Any(f => f.Key.Name == fnName.Lexeme && f.Key.Parameters.Select(p => p.Type).SequenceEqual(parameters.ToImmutable().Select(p => p.Type)) && f.Key.Parameters.Select(p => p.Type.IsArray).SequenceEqual(parameters.ToImmutable().Select(p => p.Type.IsArray))))
+                    _diagnostics.Report(fnName.Location, $"Function \"{fnName.Lexeme}\" with those parameters was already declared in class \"{name}\".");
                 else
                 {
                     _scope = new(_scope);
-                    _fn = new(fnNameT.Lexeme, parameters.ToImmutable(), fnType, fnDecl, name);
-                    _scope.TryDeclareClass(new(name, ctor, fnsOld, fields.ToImmutable()));
+                    _fn = new MethodSymbol(fnName.Lexeme, parameters.ToImmutable(), fnType, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic);
+                    _scope.TryDeclareClass(new(name, ctor, fnsOld, fields));
                     foreach (ParameterSymbol parameter in parameters.ToImmutable())
                         _scope.TryDeclareVar(parameter);
 
                     BoundBlockStmt loweredBody = Lowerer.Lower(BindStmtInternal(fnDecl.Body));
-                    fns.Add(new(fnNameT.Lexeme, parameters.ToImmutable(), fnType, fnDecl, cd.Name.Lexeme), loweredBody);
+                    fns.Add(new MethodSymbol(fnName.Lexeme, parameters.ToImmutable(), fnType, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic), loweredBody);
                     if (fnType != TypeSymbol.Void && !AllPathsReturn(loweredBody) && fnDecl!.Body.Kind != SyntaxKind.ExpressionStmt)
-                        _diagnostics.Report(fnDecl.Name.Location, $"All code paths must return a value.");
+                        _diagnostics.Report(fnName.Location, $"All code paths must return a value.");
 
                     _fn = null;
                     _scope = _scope.Parent!;
                 }
             }
-            ClassSymbol c = new(name, ctor, fns.ToImmutable(), fields.ToImmutable());
+
+            ClassSymbol c = new(name, ctor, fns.ToImmutable(), fields);
             if (!_scope.TryDeclareClass(c))
                 _diagnostics.Report(cd.Name.Location, $"Class \"{name}\" was already declared.");
+        }
+
+        private void BindEnumDecl(EnumDeclStmt ed)
+        {
+            string name = ed.Name.Lexeme;
+            int i = 0;
+            string[] memberNames = ed.Members.Select(t => t.Lexeme).ToArray();
+            foreach (string? member in ed.Members.Select(t => t.Lexeme).GroupBy(x => x).Where(g => g.Count() > 1).Select(y => y.Key).ToList())
+                _diagnostics.Report(ed.Members.Last(t => t.Lexeme == member).Location, $"Duplicated member \"{member}\" in type \"{name}\".");
+
+            ImmutableDictionary<string, BoundExpr> members = memberNames.ToDictionary(id => id, _ => (BoundExpr)new BoundLiteral(i++)).ToImmutableDictionary();
+            if (!_scope.TryDeclareADT(new(name, members)))
+                _diagnostics.Report(ed.Name.Location, $"Type \"{name}\" was already declared.");
         }
 
         private static BoundScope CreateParentScope(BoundGlobalScope? previous)
@@ -327,6 +355,12 @@ namespace Wave.src.Binding.BoundNodes
                 foreach (VariableSymbol v in previous.Variables)
                     scope.TryDeclareVar(v);
 
+                foreach (ClassSymbol c in previous.Classes)
+                    scope.TryDeclareClass(c);
+
+                foreach (ADTSymbol a in previous.ADTs)
+                    scope.TryDeclareADT(a);
+
                 parent = scope;
             }
 
@@ -338,7 +372,6 @@ namespace Wave.src.Binding.BoundNodes
             BoundScope res = new(null);
             foreach (FunctionSymbol fn in BuiltInFunctions.GetAll())
                 res.TryDeclareFn(fn);
-
             return res;
         }
 
@@ -616,7 +649,7 @@ namespace Wave.src.Binding.BoundNodes
             if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
             {
                 string bestMatch = FindBestMatch(name, _scope.GetVariables().Select(v => v.Name));
-                _diagnostics.Report(n.Identifier.Location, $"Could not find \"{name}\".", _scope.TryLookupFn(name, out _) ? $"\"{name}\" is a function therefore needs to be called." : bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                _diagnostics.Report(n.Identifier.Location, $"Could not find variable \"{name}\".", _scope.TryLookupFn(name, out _) ? $"\"{name}\" is a function therefore needs to be called." : bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                 return new BoundError();
             }
 
@@ -633,7 +666,7 @@ namespace Wave.src.Binding.BoundNodes
                 if (!_scope.TryLookupVar(name.Lexeme, out VariableSymbol? variable))
                 {
                     string bestMatch = FindBestMatch(name.Lexeme, _scope.GetVariables().Select(v => v.Name));
-                    _diagnostics.Report(id.Location, $"Could not find \"{name.Lexeme}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    _diagnostics.Report(id.Location, $"Could not find variable \"{name.Lexeme}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                     return new BoundError();
                 }
 
@@ -645,17 +678,17 @@ namespace Wave.src.Binding.BoundNodes
             else if (id.Kind == SyntaxKind.IndexingExpr)
             {
                 IndexingExpr indexing = (IndexingExpr)a.Id;
-                if (indexing.Array.Kind != SyntaxKind.NameExpr)
+                if (indexing.Expr.Kind != SyntaxKind.NameExpr)
                 {
-                    _diagnostics.Report(indexing.Array.Location, "Cannot change value of constant expression.");
+                    _diagnostics.Report(indexing.Expr.Location, "Cannot change value of constant expression.");
                     return new BoundError();
                 }
 
-                string arrName = ((NameExpr)indexing.Array).Identifier.Lexeme;
+                string arrName = ((NameExpr)indexing.Expr).Identifier.Lexeme;
                 if (!_scope.TryLookupVar(arrName, out VariableSymbol? variable))
                 {
                     string bestMatch = FindBestMatch(arrName, _scope.GetVariables().Select(v => v.Name), new(value.Type.Name, true));
-                    _diagnostics.Report(indexing.Array.Location, $"Could not find \"{arrName}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
+                    _diagnostics.Report(indexing.Expr.Location, $"Could not find variable \"{arrName}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
                     return new BoundError();
                 }
 
@@ -670,17 +703,69 @@ namespace Wave.src.Binding.BoundNodes
 
         private BoundExpr BindCallExpr(CallExpr c)
         {
-            if (c.Args.Count == 1 && LookupType(c.Callee.Lexeme) is TypeSymbol type)
+            if (c.Args.Count == 1 && LookupType(c.Callee.Lexeme) is TypeSymbol type && !type.IsClass && !type.IsADT)
                 return BindConversion(c.Args[0], type, true, true);
 
             string name = c.Callee.Lexeme;
             SourceText source = c.SyntaxTree.Source;
             ImmutableArray<Node> argNodes = c.Args.GetWithSeps();
+            BoundExpr[] args = c.Args.Select(a => BindExpr(a)).ToArray();
+            ImmutableArray<BoundExpr>.Builder ctorBoundArgs = ImmutableArray.CreateBuilder<BoundExpr>();
             if (_scope.TryLookupClass(name, out ClassSymbol? cs))
             {
+                CtorSymbol? ctor = cs!.Ctor?.Key;
+                if (ctor is not null && ctor.Accessibility == Accessibility.Priv && (_fn is null || _fn is not MethodSymbol m || m.ClassName != name))
+                {
+                    _diagnostics.Report(c.Location, $"Cannot instantiate a class with a private constructor.");
+                    return new BoundError();
+                }
+
                 if (c.Args.Any())
-                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Class constructors are not supported yet.", $"\"{name}()\"");
-                return new BoundInstance(name);
+                {
+                    if (ctor is null)
+                        _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Class \"{name}\" does not have a constructor with parameters.");
+                    else
+                    {
+                        int paramCount = ctor.Parameters.Length;
+                        if (c.Args.Count > 0 && ctor!.Parameters.Length == 0)
+                        {
+                            _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{c.Args.Count}\".");
+                            return new BoundError();
+                        }
+
+                        if (c.Args.Count > ctor!.Parameters.Length)
+                        {
+                            _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[ctor.Parameters.Length - 1].Span.Start).Span.Start, c.Args.Last().Location.Span.End)),
+                                $"Wrong number of arguments; expected \"{ctor.Parameters.Length}\" - got \"{c.Args.Count}\".",
+                                $"\"{name}({c.Location.Source[c.Args.First().Location.StartColumn..c.Args[ctor!.Parameters.Length - 1].Location.EndColumn]})\".");
+
+                            return new BoundError();
+                        }
+
+                        if (c.Args.Count == 0 && ctor!.Parameters.Length > 0)
+                        {
+                            _diagnostics.Report(new(source, TextSpan.From(c.LParen.Span.Start, c.RParen.Span.End)), $"Wrong number of arguments; expected \"{ctor.Parameters.Length}\" - got none.");
+                            return new BoundError();
+                        }
+
+                        if (c.Args.Count < ctor.Parameters.Length)
+                        {
+                            _diagnostics.Report(new(source, TextSpan.From(c.Args.First().Span.Start, c.Args.Last().Span.End)), $"Wrong number of arguments; expected \"{ctor.Parameters.Length}\" - got \"{c.Args.Count}\".");
+                            return new BoundError();
+                        }
+
+                        for (int i = 0; i < ctor.Parameters.Length; ++i)
+                        {
+                            ParameterSymbol param = ctor.Parameters[i];
+                            ExprNode rawArg = c.Args[i];
+                            BoundExpr arg = args[i];
+                            ctorBoundArgs.Add(BindConversion(arg, param.Type, new(rawArg.Location.Source, rawArg.Span), false, false, $"Parameter \"{param.Name}\" has a type of \"{param.Type}\" - got a value with type of \"{arg.Type}\" as argument.", null,
+                                $"\"{source[..rawArg.Span.Start]}{param.Type}({rawArg.Location.Text}){source[rawArg.Span.End..]}\""));
+                        }
+                    }
+                }
+
+                return new BoundInstance(name, args.ToImmutableArray());
             }
 
             if (!_scope.TryLookupFn(name, out FunctionSymbol[] fns) && !fns.Any())
@@ -690,7 +775,6 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundError();
             }
 
-            BoundExpr[] args = c.Args.Select(a => BindExpr(a)).ToArray();
             FunctionSymbol? fn = fns.Length == 1 ? fns.First() : fns.SingleOrDefault(f => f.Parameters.Length == c.Args.Count && f.Parameters.Select(p => p.Type).SequenceEqual(args.Select(a => a.Type)));
             fn ??= fns.FirstOrDefault(f => f.Parameters.Length == c.Args.Count);
 
@@ -780,57 +864,87 @@ namespace Wave.src.Binding.BoundNodes
 
         private BoundExpr BindIndexingExpr(IndexingExpr i)
         {
-            BoundExpr array = BindExpr(i.Array);
-            BoundExpr index = BindExpr(i.Index, TypeSymbol.Int);
-            if (!array.Type.IsArray)
+            if (i.Expr is NameExpr n && _scope.TryLookupEnum(n.Identifier.Lexeme, out ADTSymbol? e))
             {
-                _diagnostics.Report(i.Array.Location, $"Expected array - got \"{array.Type}\".");
+                BoundExpr member = BindExprInternal(i.Index);
+                if (member.Type.Name == e!.Name && !member.Type.IsArray && member.Type.IsADT)
+                    return new BoundEnumIndexing(e, member);
+            }
+
+            BoundExpr index = BindExpr(i.Index, TypeSymbol.Int);
+            BoundExpr expr = BindExpr(i.Expr);
+            if (!expr.Type.IsArray && expr.Type != TypeSymbol.String)
+            {
+                _diagnostics.Report(i.Expr.Location, $"Expected array or string - got \"{expr.Type}\".");
                 return new BoundError();
             }
 
-            return new BoundIndexing(array, index);
+            return new BoundIndexing(expr, index);
         }
 
         private BoundExpr BindGetExpr(GetExpr g)
         {
-
             if (g.Id is not null)
             {
                 string id = g.Id.Lexeme;
-                if (!_scope.TryLookupVar(id, out VariableSymbol? variable))
+                if (_scope.TryLookupEnum(id, out ADTSymbol? e))
                 {
-                    _diagnostics.Report(g.Id.Location, $"Could not find \"{id}\".{(_scope.TryLookupFn(id, out _) ? $" The accessor of a get expr needs to be a variable." : "")}");
+                    if (e!.Members.Any(f => f.Key == g.Field.Lexeme))
+                        return new BoundEnumGet(e!, g.Field.Lexeme);
+
+                    _diagnostics.Report(g.Field.Location, $"Could not find member \"{g.Field.Lexeme}\" on type \"{id}\".");
                     return new BoundError();
                 }
 
-                if (!_scope.TryLookupClass(variable!.Type.Name, out ClassSymbol? c))
+                bool staticAccess = false;
+                if (!_scope.TryLookupVar(id, out VariableSymbol? variable))
+                {
+                    if (!_scope.TryLookupClass(id, out _))
+                    {
+                        _diagnostics.Report(g.Id.Location, $"Could not find instance \"{id}\".");
+                        return new BoundError();
+                    }
+
+                    staticAccess = true;
+                }
+
+                if (!_scope.TryLookupClass(staticAccess ? id : variable!.Type.Name, out ClassSymbol? c))
                 {
                     _diagnostics.Report(g.Id.Location, $"\"{id}\" needs to be an instance of a class.");
                     return new BoundError();
                 }
 
                 FieldSymbol f = c!.Fields.Single(f => f.Key.Name == g.Field.Lexeme).Key;
-                if (f.Accessibility == Accessibility.Priv)
+                if (f.Accessibility == Accessibility.Priv && (_fn is null || _fn is not MethodSymbol m || m.ClassName != c.Name))
                 {
-                    if (_fn is null || _fn.ClassName != c.Name)
-                    {
-                        _diagnostics.Report(g.Field.Location, $"Cannot access \"{g.Field.Lexeme}\" since it's private.");
-                        return new BoundError();
-                    }
+                    _diagnostics.Report(g.Field.Location, $"Cannot access field \"{g.Field.Lexeme}\" - it is private.");
+                    return new BoundError();
                 }
 
                 return new BoundGet(variable, f);
             }
             else
             {
-                if (_fn is null || _fn.ClassName is null)
+                if (_fn is null || _fn is not MethodSymbol m)
                 {
-                    _diagnostics.Report(g.Location, "You need an instance to access class members.");
+                    _diagnostics.Report(g.Location, "You need an instance to access non-static class fields.");
                     return new BoundError();
                 }
 
-                ClassSymbol c = _scope.GetClasses().Single(c => c.Name == _fn.ClassName);
+                ClassSymbol c = _scope.GetClasses().Single(c => c.Name == m.ClassName);
+                if (!c!.Fields.Any(f => f.Key.Name == g.Field.Lexeme))
+                {
+                    _diagnostics.Report(g.Field.Location, $"Could not find field \"{g.Field.Lexeme}\".");
+                    return new BoundError();
+                }
+
                 FieldSymbol f = c!.Fields.Single(f => f.Key.Name == g.Field.Lexeme).Key;
+                if (m.IsStatic && !f.IsStatic)
+                {
+                    _diagnostics.Report(g.Location, "Cannot access a non-static class field while being in a static function.");
+                    return new BoundError();
+                }
+
                 return new BoundGet(null, f);
             }
         }
@@ -840,20 +954,38 @@ namespace Wave.src.Binding.BoundNodes
             string callee = m.Callee.Lexeme;
             if (m.Id is not null)
             {
-                string? name = m.Id.Lexeme;
-                if (!_scope.TryLookupVar(name!, out VariableSymbol? variable))
+                bool staticAccess = false;
+                string name = m.Id.Lexeme;
+                if (!_scope.TryLookupVar(name, out VariableSymbol? variable))
                 {
-                    _diagnostics.Report(m.Id.Location, $"Could not find \"{name}\".{(_scope.TryLookupFn(name!, out _) ? $" The accessor of a get expr needs to be a variable." : "")}");
+                    if (!_scope.TryLookupClass(name, out _))
+                    {
+                        _diagnostics.Report(m.Id.Location, $"Could not find instance \"{name}\".");
+                        return new BoundError();
+                    }
+
+                    staticAccess = true;
+                }
+
+                if (!_scope.TryLookupClass(staticAccess ? name : variable!.Type.Name, out ClassSymbol? c))
+                {
+                    _diagnostics.Report(m.Id.Location, $"\"{name}\" needs to be an instance of a class.");
                     return new BoundError();
                 }
 
-                if (!_scope.TryLookupClass(variable!.Type.Name, out ClassSymbol? c))
+                MethodSymbol fn = c!.Fns.Single(f => f.Key.Name == callee).Key;
+                if (staticAccess && fn is MethodSymbol m1 && !m1.IsStatic)
                 {
-                    _diagnostics.Report(m.Id.Location, $"\"{name}\" needs to be a n instance of a class.");
+                    _diagnostics.Report(m.Callee.Location, $"Cannot access non-static method \"{fn.Name}\" without an instance of \"{name}\".");
                     return new BoundError();
                 }
 
-                FunctionSymbol fn = c!.Fns.Single(f => f.Key.Name == callee).Key;
+                if (fn.Accessibility == Accessibility.Priv && (_fn is null || _fn is not MethodSymbol m2 || m2.ClassName != c.Name))
+                {
+                    _diagnostics.Report(m.Callee.Location, $"Cannot access method \"{fn.Name}\" - it is private.");
+                    return new BoundError();
+                }
+
                 SourceText source = m.SyntaxTree.Source;
                 ImmutableArray<Node> argNodes = m.Args.GetWithSeps();
                 BoundExpr[] args = m.Args.Select(a => BindExpr(a)).ToArray();
@@ -899,14 +1031,26 @@ namespace Wave.src.Binding.BoundNodes
             }
             else
             {
-                if (_fn is null || _fn.ClassName is null)
+                if (_fn is null || _fn is not MethodSymbol m1)
                 {
-                    _diagnostics.Report(new(m.Location.Source, TextSpan.From(m.Dot.Span.Start, m.Callee.Span.End)), "You need an instance to access class members.");
+                    _diagnostics.Report(m.Location, "You need an instance to access class members.");
                     return new BoundError();
                 }
 
-                ClassSymbol c = _scope.GetClasses().Single(c => c.Name == _fn.ClassName);
-                FunctionSymbol fn = c!.Fns.Single(f => f.Key.Name == callee).Key;
+                ClassSymbol c = _scope.GetClasses().Single(c => c.Name == m1.ClassName);
+                if (!c!.Fns.Any(fn => fn.Key.Name == callee))
+                {
+                    _diagnostics.Report(m.Callee.Location, $"Could not find method \"{callee}\".");
+                    return new BoundError();
+                }
+
+                MethodSymbol fn = c!.Fns.Single(f => f.Key.Name == callee).Key;
+                if (m1.IsStatic && _fn is MethodSymbol m2 && !m2.IsStatic)
+                {
+                    _diagnostics.Report(m.Location, "Cannot access a non-static class member while being in a static function.");
+                    return new BoundError();
+                }
+
                 SourceText source = m.SyntaxTree.Source;
                 ImmutableArray<Node> argNodes = m.Args.GetWithSeps();
                 BoundExpr[] args = m.Args.Select(a => BindExpr(a)).ToArray();
@@ -956,21 +1100,39 @@ namespace Wave.src.Binding.BoundNodes
         {
             if (s.Id is not null)
             {
+                bool staticAccess = false;
                 string id = s.Id.Lexeme;
                 if (!_scope.TryLookupVar(id, out VariableSymbol? variable))
                 {
-                    _diagnostics.Report(s.Id.Location, $"Could not find \"{id}\".{(_scope.TryLookupFn(id, out _) ? $" The accessor of a get expr needs to be a variable." : "")}");
-                    return new BoundError();
+                    if (!_scope.TryLookupClass(id, out _))
+                    {
+                        _diagnostics.Report(s.Id.Location, $"Could not find instance \"{id}\".");
+                        return new BoundError();
+                    }
+
+                    staticAccess = true;
                 }
 
-                if (!_scope.TryLookupClass(variable!.Type.Name, out ClassSymbol? c))
+                if (!_scope.TryLookupClass(staticAccess ? id : variable!.Type.Name, out ClassSymbol? c))
                 {
-                    _diagnostics.Report(s.Id.Location, $"\"{id}\" needs to be a n instance of a class.");
+                    _diagnostics.Report(s.Id.Location, $"\"{id}\" needs to be an instance of a class.");
                     return new BoundError();
                 }
 
                 FieldSymbol f = c!.Fields.Single(f => f.Key.Name == s.Field.Lexeme).Key;
-                if (!variable.IsMut)
+                if (f.Accessibility == Accessibility.Priv && (_fn is null || _fn is not MethodSymbol m || m.ClassName != c.Name))
+                {
+                    _diagnostics.Report(s.Field.Location, $"Cannot access field \"{s.Field.Lexeme}\" - it is private.");
+                    return new BoundError();
+                }
+
+                if (!f.IsStatic && (_fn is null || _fn is not MethodSymbol m1 || m1.IsStatic))
+                {
+                    _diagnostics.Report(s.Field.Location, $"Cannot access \"{s.Field.Lexeme}\" since it requires an instance.");
+                    return new BoundError();
+                }
+
+                if (!staticAccess && !variable!.IsMut)
                 {
                     _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign the field \"{s.Field.Lexeme}\" of a constant instance.");
                     return new BoundError();
@@ -987,17 +1149,29 @@ namespace Wave.src.Binding.BoundNodes
             }
             else
             {
-                if (_fn is null || _fn.ClassName is null)
+                if (_fn is null || _fn is not MethodSymbol m)
                 {
                     _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.Dot.Span.Start, s.Field.Span.End)), "You need an instance to access class members.");
                     return new BoundError();
                 }
 
-                ClassSymbol c = _scope.GetClasses().Single(c => c.Name == _fn.ClassName);
-                FieldSymbol f = c!.Fields.Single(f => f.Key.Name == s.Field.Lexeme).Key;
-                if (!f.IsMut)
+                ClassSymbol c = _scope.GetClasses().Single(c => c.Name == m.ClassName);
+                if (!c!.Fields.Any(f => f.Key.Name == s.Field.Lexeme))
                 {
-                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign the constant field \"{s.Field.Lexeme}\" of an instance of class \"{c.Name}\".");
+                    _diagnostics.Report(s.Field.Location, $"Could not find field \"{s.Field.Lexeme}\".");
+                    return new BoundError();
+                }
+
+                FieldSymbol f = c!.Fields.Single(f => f.Key.Name == s.Field.Lexeme).Key;
+                if (m.IsStatic && !f.IsStatic)
+                {
+                    _diagnostics.Report(s.Location, "Cannot access a non-static class member while being in a static function.");
+                    return new BoundError();
+                }
+
+                if (!f.IsMut && !string.IsNullOrEmpty(_fn.Name))
+                {
+                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign the field \"{s.Field.Lexeme}\" - it is a constant.");
                     return new BoundError();
                 }
 
@@ -1011,7 +1185,7 @@ namespace Wave.src.Binding.BoundNodes
         {
             if (!allowArray && expr.Type.IsArray && !type.IsArray)
             {
-                _diagnostics.Report(location, $"No conversion from non-array type to array type.");
+                _diagnostics.Report(location, $"No conversion from non-array type to array type possible.");
                 return new BoundError();
             }
 
@@ -1047,6 +1221,6 @@ namespace Wave.src.Binding.BoundNodes
             "float" => TypeSymbol.Float,
             "string" => TypeSymbol.String,
             _ => null,
-        } ?? (_scope.TryLookupClass(name, out _) ? new TypeSymbol(name, false, true) : null);
+        } ?? (_scope.TryLookupClass(name, out _) ? new(name, false, true) : (_scope.TryLookupEnum(name, out _) ? new(name, false, false, true) : null));
     }
 }

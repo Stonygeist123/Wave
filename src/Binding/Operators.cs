@@ -30,11 +30,7 @@ namespace Wave.Source.Binding
             new(SyntaxKind.Inv, BoundUnOpKind.Inv, TypeSymbol.Int),
             new(SyntaxKind.Bang, BoundUnOpKind.Bang, TypeSymbol.Bool),
 
-
-            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.Int.Name, true), TypeSymbol.Int),
-            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.Float.Name, true), TypeSymbol.Int),
-            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.Bool.Name, true), TypeSymbol.Int),
-            new(SyntaxKind.Plus, BoundUnOpKind.Plus, new(TypeSymbol.String.Name, true), TypeSymbol.Int)
+            new(SyntaxKind.Plus, BoundUnOpKind.Plus, TypeSymbol.String, TypeSymbol.Int),
         };
 
         public static BoundUnOperator? Bind(SyntaxKind kind, TypeSymbol operandType)
@@ -42,6 +38,9 @@ namespace Wave.Source.Binding
             foreach (BoundUnOperator op in _operators)
                 if (op.SyntaxKind == kind && op.OperandType == operandType && operandType.IsArray == op.OperandType.IsArray)
                     return op;
+
+            if (kind == SyntaxKind.Plus && operandType.IsArray)
+                return new(SyntaxKind.Plus, BoundUnOpKind.Plus, operandType, TypeSymbol.Int);
 
             return null;
         }
@@ -164,6 +163,15 @@ namespace Wave.Source.Binding
             foreach (BoundBinOperator op in _operators)
                 if (op.SyntaxKind == kind && op.LeftType == leftType && op.RightType == rightType && leftType.IsArray == op.LeftType.IsArray && rightType.IsArray == op.RightType.IsArray)
                     return op;
+
+            if (kind == SyntaxKind.Plus && leftType.IsArray && !rightType.IsArray && leftType.Name == rightType.Name)
+                return new BoundBinOperator(SyntaxKind.Plus, BoundBinOpKind.Plus, new(leftType.Name, true, leftType.IsClass, leftType.IsADT));
+
+            if (kind == SyntaxKind.EqEq && leftType.IsADT && leftType == rightType)
+                return new BoundBinOperator(SyntaxKind.EqEq, BoundBinOpKind.EqEq, TypeSymbol.Bool);
+
+            if (kind == SyntaxKind.NotEq && leftType.IsADT && leftType == rightType)
+                return new BoundBinOperator(SyntaxKind.NotEq, BoundBinOpKind.NotEq, TypeSymbol.Bool);
 
             return null;
         }

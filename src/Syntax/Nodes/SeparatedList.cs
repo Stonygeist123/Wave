@@ -8,7 +8,6 @@ namespace Wave.Source.Syntax.Nodes
     {
         private readonly ImmutableArray<Node> _nodes;
         public SeparatedList(ImmutableArray<Node> nodes) => _nodes = nodes;
-
         public int Count => (_nodes.Length + 1) / 2;
         public T this[int index] => (T)_nodes[index * 2];
         public ImmutableArray<Node> GetWithSeps() => _nodes;

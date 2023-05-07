@@ -48,37 +48,43 @@ namespace Wave.Source.Syntax.Nodes
 
     public sealed class FnDeclStmt : MemberNode
     {
-        public FnDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, ParameterList? parameters, TypeClause? typeClause, StmtNode body)
+        public FnDeclStmt(SyntaxTree syntaxTree, Token? accessibility, Token keyword, Token? staticDot, Token name, ParameterList? parameters, TypeClause? typeClause, StmtNode body)
             : base(syntaxTree)
         {
+            Accessibility = accessibility;
             Keyword = keyword;
             Name = name;
             Parameters = parameters;
             TypeClause = typeClause;
             Body = body;
+            StaticDot = staticDot;
         }
 
+        public Token? Accessibility { get; }
         public Token Keyword { get; }
         public Token Name { get; }
         public ParameterList? Parameters { get; }
         public TypeClause? TypeClause { get; }
         public StmtNode Body { get; }
+        public Token? StaticDot { get; }
         public override SyntaxKind Kind => SyntaxKind.FnDecl;
     }
 
     public sealed class CtorDeclStmt : MemberNode
     {
-        public CtorDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, ParameterList? parameters, StmtNode body)
+        public CtorDeclStmt(SyntaxTree syntaxTree, Token? accessibility, Token keyword, ParameterList? parameters, StmtNode body, Token className)
             : base(syntaxTree)
         {
+            Accessibility = accessibility;
             Keyword = keyword;
-            Name = name;
             Parameters = parameters;
             Body = body;
+            ClassName = className;
         }
 
+        public Token? Accessibility { get; }
         public Token Keyword { get; }
-        public Token Name { get; }
+        public Token ClassName { get; }
         public ParameterList? Parameters { get; }
         public StmtNode Body { get; }
         public override SyntaxKind Kind => SyntaxKind.FnDecl;
@@ -86,11 +92,12 @@ namespace Wave.Source.Syntax.Nodes
 
     public sealed class FieldDecl : MemberNode
     {
-        public FieldDecl(SyntaxTree syntaxTree, Token? accessibility, Token? mutKeyword, Token name, TypeClause? typeClause, Token eqToken, ExprNode value, Token semicolon)
+        public FieldDecl(SyntaxTree syntaxTree, Token? accessibility, Token? mutKeyword, Token? staticDot, Token name, TypeClause? typeClause, Token eqToken, ExprNode value, Token semicolon)
             : base(syntaxTree)
         {
             Accessibility = accessibility;
             MutKeyword = mutKeyword;
+            StaticDot = staticDot;
             Name = name;
             TypeClause = typeClause;
             EqToken = eqToken;
@@ -100,6 +107,7 @@ namespace Wave.Source.Syntax.Nodes
 
         public Token? Accessibility { get; }
         public Token? MutKeyword { get; }
+        public Token? StaticDot { get; }
         public Token Name { get; }
         public TypeClause? TypeClause { get; }
         public Token EqToken { get; }
@@ -130,5 +138,25 @@ namespace Wave.Source.Syntax.Nodes
         public ImmutableArray<FieldDecl> FieldDecls { get; }
         public Token RBrace { get; }
         public override SyntaxKind Kind => SyntaxKind.ClassDecl;
+    }
+
+    public sealed class EnumDeclStmt : MemberNode
+    {
+        public EnumDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, SeparatedList<Token> members, Token rBrace)
+            : base(syntaxTree)
+        {
+            Keyword = keyword;
+            Name = name;
+            LBrace = lBrace;
+            Members = members;
+            RBrace = rBrace;
+        }
+
+        public Token Keyword { get; }
+        public Token Name { get; }
+        public Token LBrace { get; }
+        public SeparatedList<Token> Members { get; }
+        public Token RBrace { get; }
+        public override SyntaxKind Kind => SyntaxKind.ADTDecl;
     }
 }

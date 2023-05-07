@@ -518,7 +518,6 @@ namespace Wave.Repl
         private readonly Dictionary<VariableSymbol, object?> _vars = new();
         private static readonly Compilation emptyCompilation = new(true, null);
         public WaveRepl() => LoadSubmissions();
-
         protected override void RenderLine(string line)
         {
             ImmutableArray<Token> tokens = SyntaxTree.ParseTokens(line);
@@ -623,9 +622,11 @@ namespace Wave.Repl
                 EvaluationResult result = compilation.Evaluate(_vars);
                 if (!result.Diagnostics.Any())
                 {
-                    if ((_previous?.Functions.Length ?? 0) < compilation.Functions.Length || (_previous?.Variables.Length ?? 0) < compilation.Variables.Length)
+                    if ((_previous?.Functions.Length ?? 0) < compilation.Functions.Length
+                        || (_previous?.Variables.Length ?? 0) < compilation.Variables.Length
+                        || (_previous?.Classes.Length ?? 0) < compilation.Classes.Length
+                        || (_previous?.ADTs.Length ?? 0) < compilation.ADTs.Length)
                         SaveSubmission(text);
-
                     _previous = compilation;
                 }
                 else

@@ -31,6 +31,11 @@ namespace Wave.Symbols
                     break;
                 case TypeSymbol t:
                     writer.WriteIdentifier(t.Name);
+                    if (t.IsArray)
+                    {
+                        writer.WritePunctuation(SyntaxKind.LBracket);
+                        writer.WritePunctuation(SyntaxKind.RBracket);
+                    }
                     break;
                 case FunctionSymbol f:
                     writer.WriteKeyword(SyntaxKind.Fn);

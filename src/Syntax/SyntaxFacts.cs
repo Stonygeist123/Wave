@@ -44,6 +44,7 @@ namespace Wave.Source.Syntax
             "in" => SyntaxKind.In,
             "pub" => SyntaxKind.Public,
             "priv" => SyntaxKind.Private,
+            "type" => SyntaxKind.Type,
             _ => SyntaxKind.Identifier,
         };
 
@@ -95,6 +96,7 @@ namespace Wave.Source.Syntax
             SyntaxKind.In => "in",
             SyntaxKind.Public => "pub",
             SyntaxKind.Private => "priv",
+            SyntaxKind.Type => "type",
             _ => null,
         };
     }

@@ -10,17 +10,6 @@ using Wave.Symbols;
 
 namespace Wave.Source.Compilation
 {
-    public class EvaluationResult
-    {
-        public ImmutableArray<Diagnostic> Diagnostics { get; }
-        public object? Value { get; }
-        public EvaluationResult(ImmutableArray<Diagnostic> diagnostics, object? value)
-        {
-            Diagnostics = diagnostics;
-            Value = value;
-        }
-    }
-
     public sealed class Compilation
     {
         private BoundGlobalScope? _globalScope;
@@ -29,6 +18,7 @@ namespace Wave.Source.Compilation
         public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
         public ImmutableArray<ClassSymbol> Classes => GlobalScope.Classes;
         public ImmutableArray<ADTSymbol> ADTs => GlobalScope.ADTs;
+        public ImmutableArray<NamespaceSymbol> Namespaces => GlobalScope.Namespaces;
         public bool IsScript { get; }
         public Compilation? Previous { get; }
         public ImmutableArray<SyntaxTree> SyntaxTrees { get; }
@@ -70,6 +60,25 @@ namespace Wave.Source.Compilation
                     if (seenNames.Add(var.Name))
                         yield return var;
 
+                foreach (ClassSymbol c in submission.Classes)
+                    if (seenNames.Add(c.Name))
+                        yield return c;
+
+                foreach (ADTSymbol adt in submission.ADTs)
+                    if (seenNames.Add(adt.Name))
+                        yield return adt;
+
+                foreach (NamespaceSymbol ns in submission.Namespaces)
+                    if (seenNames.Add(ns.Name))
+                    {
+                        foreach (Symbol symbol in ns.Classes.Cast<Symbol>()
+                            .Concat(ns.ADTs).Cast<Symbol>()
+                            .Concat(ns.Fns.Select(x => x.Key)).Cast<Symbol>()
+                            .Concat(ns.Namespaces)
+                            .Select(s => { s.Name = $"{ns.Name}::{s.Name}"; return s; }))
+                            yield return symbol;
+                    }
+
                 List<FunctionSymbol?> builtInFns = typeof(BuiltInFunctions).GetFields().Where(fi => fi.FieldType == typeof(FunctionSymbol)).Select(fi => (FunctionSymbol?)fi.GetValue(null)).ToList();
                 foreach (FunctionSymbol? biFn in builtInFns)
                     if (biFn is not null && seenNames.Add(biFn.Name))
@@ -80,19 +89,19 @@ namespace Wave.Source.Compilation
         }
 
         public Compilation ContinueWith(SyntaxTree syntaxTree) => new(IsScript, this, syntaxTree);
-        public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
+        public ImmutableArray<Diagnostic> Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
             ImmutableArray<Diagnostic> diagnostics = SyntaxTrees.SelectMany(s => s.Diagnostics).Concat(GlobalScope.Diagnostics).ToImmutableArray();
             if (diagnostics.Any())
-                return new(diagnostics, null);
+                return diagnostics;
 
             BoundProgram program = GetProgram()!;
             if (program.Diagnostics.Any())
-                return new EvaluationResult(program.Diagnostics, null);
+                return program.Diagnostics;
 
             Evaluator evaluator = new(program, variables);
-            object? value = evaluator.Evaluate();
-            return new(ImmutableArray<Diagnostic>.Empty, value);
+            evaluator.Evaluate();
+            return ImmutableArray<Diagnostic>.Empty;
         }
 
         public void EmitTree(TextWriter writer)

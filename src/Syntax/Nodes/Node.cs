@@ -122,6 +122,7 @@ namespace Wave.Source.Syntax.Nodes
         Comma,
         Semicolon,
         Colon,
+        ColonColon,
         Dot,
         Arrow,
         Bad,
@@ -150,9 +151,10 @@ namespace Wave.Source.Syntax.Nodes
         Break,
         Ret,
         In,
-        Public,
-        Private,
+        Pub,
+        Priv,
         Type,
+        Namespace,
 
         // Nodes
         CompilationUnit,
@@ -175,6 +177,7 @@ namespace Wave.Source.Syntax.Nodes
         CallExpr,
         ArrayExpr,
         IndexingExpr,
+        NamespaceGetExpr,
         GetExpr,
         MethodExpr,
         SetExpr,

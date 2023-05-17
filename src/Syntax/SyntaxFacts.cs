@@ -42,9 +42,10 @@ namespace Wave.Source.Syntax
             "continue" => SyntaxKind.Continue,
             "ret" => SyntaxKind.Ret,
             "in" => SyntaxKind.In,
-            "pub" => SyntaxKind.Public,
-            "priv" => SyntaxKind.Private,
+            "pub" => SyntaxKind.Pub,
+            "priv" => SyntaxKind.Priv,
             "type" => SyntaxKind.Type,
+            "namespace" => SyntaxKind.Namespace,
             _ => SyntaxKind.Identifier,
         };
 
@@ -94,9 +95,10 @@ namespace Wave.Source.Syntax
             SyntaxKind.Continue => "continue",
             SyntaxKind.Ret => "ret",
             SyntaxKind.In => "in",
-            SyntaxKind.Public => "pub",
-            SyntaxKind.Private => "priv",
+            SyntaxKind.Pub => "pub",
+            SyntaxKind.Priv => "priv",
             SyntaxKind.Type => "type",
+            SyntaxKind.Namespace => "namespace",
             _ => null,
         };
     }

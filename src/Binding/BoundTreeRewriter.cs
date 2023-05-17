@@ -230,7 +230,7 @@ namespace Wave.Source.Binding
             if (builder is null)
                 return node;
 
-            return new BoundCall(node.Function, builder.MoveToImmutable());
+            return new BoundCall(node.Function, builder.MoveToImmutable(), node.NamespaceSymbol);
         }
 
         protected virtual BoundExpr RewriteArrayExpr(BoundArray node)
@@ -260,7 +260,33 @@ namespace Wave.Source.Binding
             return new BoundArray(builder.MoveToImmutable(), node.Type);
         }
 
-        protected virtual BoundExpr RewriteInstanceExpr(BoundInstance node) => node;
+        protected virtual BoundExpr RewriteInstanceExpr(BoundInstance node)
+        {
+            ImmutableArray<BoundExpr>.Builder? builder = null;
+            for (int i = 0; i < node.Args.Length; i++)
+            {
+                BoundExpr stmt = node.Args[i];
+                BoundExpr oldExpr = stmt;
+                BoundExpr newExpr = RewriteExpr(oldExpr);
+                if (newExpr != oldExpr)
+                {
+                    if (builder is null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpr>(node.Args.Length);
+                        for (int j = 0; j < i; ++j)
+                            builder.Add(node.Args[j]);
+                    }
+                }
+
+                builder?.Add(newExpr);
+            }
+
+            if (builder is null)
+                return node;
+
+            return new BoundInstance(node.Name, builder.MoveToImmutable(), node.NamespaceSymbol);
+        }
+
         protected virtual BoundExpr RewriteIndexingExpr(BoundIndexing node)
         {
             BoundExpr expr = RewriteExpr(node.Expr);
@@ -313,7 +339,7 @@ namespace Wave.Source.Binding
             BoundExpr v = RewriteExpr(node.Value);
             if (v == node.Value)
                 return node;
-            return new BoundSet(node.Id, node.Field, node.Value);
+            return new BoundSet(node.Id, node.Field, node.Value, node.HasInstance);
         }
 
         private BoundExpr RewriteConversionExpr(BoundConversion node)

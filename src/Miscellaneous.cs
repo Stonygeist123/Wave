@@ -161,11 +161,6 @@ namespace Wave
         }
     }
 
-    public static class IDs
-    {
-        public static int InstanceID { get; set; } = 0;
-    }
-
     public class ClassInstance
     {
         public ClassInstance(string name, Dictionary<string, BoundBlockStmt> fns, Dictionary<string, object?> fields)
@@ -173,7 +168,7 @@ namespace Wave
             Name = name;
             Fns = fns;
             Fields = fields;
-            _id = IDs.InstanceID++;
+            _id = InstanceID++;
         }
 
         public string Name { get; }
@@ -182,5 +177,9 @@ namespace Wave
         private readonly int _id;
         public override int GetHashCode() => _id;
         public override string ToString() => Name;
+        private static int InstanceID { get; set; } = 0;
+        public static bool operator ==(ClassInstance x, ClassInstance y) => x._id == y._id;
+        public static bool operator !=(ClassInstance x, ClassInstance y) => x._id != y._id;
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
     }
 }

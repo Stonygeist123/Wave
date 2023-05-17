@@ -13,7 +13,7 @@ namespace Wave.Lowering
         public static BoundBlockStmt Lower(BoundStmt stmt)
         {
             Lowerer lowerer = new();
-            return Flatten(lowerer.RewriteStmt(stmt));
+            return RemoveDeadCode(Flatten(lowerer.RewriteStmt(stmt)));
         }
 
         private static BoundBlockStmt Flatten(BoundStmt stmt)
@@ -34,6 +34,17 @@ namespace Wave.Lowering
                     builder.Add(current);
             }
 
+            return new(builder.ToImmutable());
+        }
+
+        private static BoundBlockStmt RemoveDeadCode(BoundBlockStmt node)
+        {
+            ControlFlowGraph controlFlow = ControlFlowGraph.CreateGraph(node);
+            HashSet<BoundStmt> reachableStatements = new(controlFlow.Blocks.SelectMany(b => b.Stmts));
+            ImmutableArray<BoundStmt>.Builder builder = ImmutableArray.CreateBuilder<BoundStmt>();
+            foreach (BoundStmt stmt in node.Stmts)
+                if (reachableStatements.Contains(stmt))
+                    builder.Add(stmt);
             return new(builder.ToImmutable());
         }
 

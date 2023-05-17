@@ -9,9 +9,7 @@ namespace Wave.Source.Syntax
         private int _position = 0;
         private readonly DiagnosticBag _diagnostics = new();
         private readonly SyntaxTree _syntaxTree;
-
         public DiagnosticBag Diagnostics => _diagnostics;
-
         public Parser(SyntaxTree syntaxTree)
         {
             Lexer lexer = new(syntaxTree);
@@ -56,6 +54,7 @@ namespace Wave.Source.Syntax
             SyntaxKind.Fn => ParseFnDeclaration(),
             SyntaxKind.Class => ParseClassDecl(),
             SyntaxKind.Type => ParseEnumDecl(),
+            SyntaxKind.Namespace => ParseNamespaceDecl(),
             _ => ParseGlobalStmt(),
         };
 
@@ -101,7 +100,7 @@ namespace Wave.Source.Syntax
 
             while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
             {
-                Token? accessibility = Current.Kind == SyntaxKind.Private || Current.Kind == SyntaxKind.Public ? Advance() : null;
+                Token? accessibility = Current.Kind == SyntaxKind.Priv || Current.Kind == SyntaxKind.Pub ? Advance() : null;
                 if (Current.Kind == SyntaxKind.Fn)
                 {
                     if (Peek(1).Kind == SyntaxKind.Dot)
@@ -152,7 +151,7 @@ namespace Wave.Source.Syntax
             return new(_syntaxTree, kw, name, lBrace, ctor, fnDecls.ToImmutable(), fieldDecls.ToImmutable(), Match(SyntaxKind.RBrace));
         }
 
-        private EnumDeclStmt ParseEnumDecl()
+        private ADTDeclStmt ParseEnumDecl()
         {
             Token kw = Match(SyntaxKind.Type);
             Token name = Match(SyntaxKind.Identifier);
@@ -171,6 +170,24 @@ namespace Wave.Source.Syntax
             SeparatedList<Token> members = new(nodes.ToImmutable());
             Token rBrace = Match(SyntaxKind.RBrace);
             return new(_syntaxTree, kw, name, lBrace, members, rBrace);
+        }
+
+        private NamespaceDeclStmt ParseNamespaceDecl()
+        {
+            Token kw = Match(SyntaxKind.Namespace);
+            Token name = Match(SyntaxKind.Identifier);
+            Token lBrace = Match(SyntaxKind.LBrace);
+            ImmutableArray<MemberNode>.Builder members = ImmutableArray.CreateBuilder<MemberNode>();
+            while (Current.Kind != SyntaxKind.RBrace && Current.Kind != SyntaxKind.Eof)
+            {
+                MemberNode member = ParseMember();
+                if (member.Kind == SyntaxKind.GlobalStmt)
+                    _diagnostics.Report(member.Location, $"Only function, class, type and namespace declarations are allowed in namespaces.");
+
+                members.Add(member);
+            }
+
+            return new(_syntaxTree, kw, name, lBrace, members.ToImmutable(), Match(SyntaxKind.RBrace));
         }
 
         private StmtNode ParseStmt() => Current.Kind switch
@@ -439,9 +456,13 @@ namespace Wave.Source.Syntax
         {
             Token id = Match(SyntaxKind.Identifier);
             ExprNode expr = new NameExpr(_syntaxTree, id);
+            while (Current.Kind == SyntaxKind.ColonColon)
+                expr = new NamespaceGetExpr(_syntaxTree, id, Advance(),
+                    Peek(1).Kind == SyntaxKind.ColonColon ? new NamespaceGetExpr(_syntaxTree, Match(SyntaxKind.Identifier), Match(SyntaxKind.ColonColon), new NameExpr(_syntaxTree, Match(SyntaxKind.Identifier))) : new NameExpr(_syntaxTree, Match(SyntaxKind.Identifier)));
+
             if (Current.Kind == SyntaxKind.Dot)
             {
-                expr = new GetExpr(_syntaxTree, id, Advance(), Match(SyntaxKind.Identifier));
+                expr = new GetExpr(_syntaxTree, expr, Advance(), Match(SyntaxKind.Identifier));
                 if (Current.Kind == SyntaxKind.Eq)
                     return new SetExpr(_syntaxTree, id, ((GetExpr)expr).Dot, ((GetExpr)expr).Field, Advance(), ParseExpr());
             }
@@ -462,7 +483,7 @@ namespace Wave.Source.Syntax
 
                 expr = expr is GetExpr g
                     ? new MethodExpr(_syntaxTree, id, g.Dot, g.Field, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen))
-                    : new CallExpr(_syntaxTree, id, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));
+                    : new CallExpr(_syntaxTree, expr, lParen, new SeparatedList<ExprNode>(args.ToImmutable()), Match(SyntaxKind.RParen));
             }
 
             return expr;

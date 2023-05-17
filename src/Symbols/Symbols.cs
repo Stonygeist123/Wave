@@ -18,7 +18,7 @@
     {
         public Symbol(string name) => Name = name;
         public abstract SymbolKind Kind { get; }
-        public string Name { get; }
+        public string Name { get; set; }
         public void WriteTo(TextWriter writer) => SymbolPrinter.WriteTo(this, writer);
         public override string ToString()
         {

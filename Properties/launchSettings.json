@@ -2,7 +2,7 @@
   "profiles": {
     "Wave": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\Users\\Yunus\\source\\repos\\Wave\\samples\\interpreter\\lexer.wave"
+      "commandLineArgs": "C:\\Users\\Yunus\\source\\repos\\Wave\\samples\\namespaces.wave"
     }
   }
 }

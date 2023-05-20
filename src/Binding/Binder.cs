@@ -27,6 +27,7 @@ namespace Wave.src.Binding.BoundNodes
             _isScript = isScript;
             _fn = fn;
             _namespaces = namespaces.ToDictionary(n => n.Name, n => n);
+            _namespaces.Add("std", (NamespaceSymbol)StdLib.Namespace);
             if (fn is not null)
                 foreach (ParameterSymbol param in fn.Parameters)
                     _scope.TryDeclareVar(param, true);
@@ -35,7 +36,7 @@ namespace Wave.src.Binding.BoundNodes
         public static BoundGlobalScope BindGlobalScope(bool isScript, BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
         {
             BoundScope parentScope = CreateParentScope(previous);
-            Binder binder = new(isScript, parentScope, null, previous?.Namespaces ?? ImmutableArray<NamespaceSymbol>.Empty);
+            Binder binder = new(isScript, parentScope, null, previous?.Namespaces.Where(n => n.Name != "std").ToImmutableArray() ?? ImmutableArray<NamespaceSymbol>.Empty);
             foreach (NamespaceDeclStmt namespaceDecl in syntaxTrees.SelectMany(s => s.Root.Members).OfType<NamespaceDeclStmt>())
                 binder.BindNamespaceDecl(namespaceDecl);
 
@@ -409,7 +410,7 @@ namespace Wave.src.Binding.BoundNodes
                 previous = previous.Previous;
             }
 
-            BoundScope parent = GetRootScope();
+            BoundScope parent = new(null);
             while (stack.Count > 0)
             {
                 previous = stack.Pop();
@@ -430,14 +431,6 @@ namespace Wave.src.Binding.BoundNodes
             }
 
             return parent;
-        }
-
-        private static BoundScope GetRootScope()
-        {
-            BoundScope res = new(null);
-            foreach (FunctionSymbol fn in BuiltInFunctions.GetAll())
-                res.TryDeclareFn(fn);
-            return res;
         }
 
         private BoundStmt BindGlobalStmt(StmtNode stmt) => BindStmt(stmt, true);
@@ -686,7 +679,6 @@ namespace Wave.src.Binding.BoundNodes
 
         string FindBestMatch(string stringToCompare, IEnumerable<string> strs, TypeSymbol? type = null)
         {
-
             HashSet<string> strCompareHash = stringToCompare.Split(' ').ToHashSet();
             int maxIntersectCount = 0;
             string bestMatch = string.Empty;
@@ -769,19 +761,19 @@ namespace Wave.src.Binding.BoundNodes
         private BoundExpr BindCallExpr(CallExpr c)
         {
             NamespaceSymbol? nsSymbol = null;
-            Symbol? symbol = c.Callee is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol) : null;
-            if (c.Callee is NamespaceGetExpr && symbol is null)
+            IEnumerable<Symbol>? symbols = c.Callee is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol) : null;
+            if (c.Callee is NamespaceGetExpr && symbols is null)
                 return new BoundError();
 
-            string name = c.Callee is NameExpr n ? n.Identifier.Lexeme : symbol!.Name ?? string.Empty;
-            if (symbol is null && c.Args.Count == 1 && LookupType(name) is TypeSymbol type && !type.IsClass && !type.IsADT)
+            string name = c.Callee is NameExpr n ? n.Identifier.Lexeme : symbols!.First().Name;
+            if (symbols is null && c.Args.Count == 1 && LookupType(name) is TypeSymbol type && !type.IsClass && !type.IsADT)
                 return BindConversion(c.Args[0], type, true, true);
 
             SourceText source = c.SyntaxTree.Source;
             ImmutableArray<Node> argNodes = c.Args.GetWithSeps();
             BoundExpr[] args = c.Args.Select(a => BindExpr(a)).ToArray();
             ImmutableArray<BoundExpr>.Builder ctorBoundArgs = ImmutableArray.CreateBuilder<BoundExpr>();
-            ClassSymbol? cs = (symbol?.Kind == SymbolKind.Class ? (ClassSymbol)symbol : null) ?? null;
+            ClassSymbol? cs = symbols is IEnumerable<ClassSymbol> classes ? classes.ElementAt(0) : null;
             if (cs is not null || _scope.TryLookupClass(name, out cs))
             {
                 CtorSymbol? ctor = cs!.Ctor?.Key;
@@ -794,19 +786,19 @@ namespace Wave.src.Binding.BoundNodes
                 if (c.Args.Any())
                 {
                     if (ctor is null)
-                        _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Class \"{name}\" does not have a constructor with parameters.");
+                        _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Span.End)), $"Class \"{name}\" does not have a constructor with parameters.");
                     else
                     {
                         int paramCount = ctor.Parameters.Length;
                         if (c.Args.Count > 0 && ctor!.Parameters.Length == 0)
                         {
-                            _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{c.Args.Count}\".");
+                            _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{c.Args.Count}\".");
                             return new BoundError();
                         }
 
                         if (c.Args.Count > ctor!.Parameters.Length)
                         {
-                            _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[ctor.Parameters.Length - 1].Span.Start).Span.Start, c.Args.Last().Location.Span.End)),
+                            _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[ctor.Parameters.Length - 1].Span.Start).Span.Start, c.Args.Last().Span.End)),
                                 $"Wrong number of arguments; expected \"{ctor.Parameters.Length}\" - got \"{c.Args.Count}\".",
                                 $"\"{name}({c.Location.Source[c.Args.First().Location.StartColumn..c.Args[ctor!.Parameters.Length - 1].Location.EndColumn]})\".");
 
@@ -839,10 +831,10 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundInstance(name, args.ToImmutableArray(), nsSymbol);
             }
 
-            FunctionSymbol[] fns = Array.Empty<FunctionSymbol>();
-            if (nsSymbol is not null && nsSymbol.Fns.Any(fn => fn.Key.Name == name))
+            FunctionSymbol[] fns = symbols is IEnumerable<FunctionSymbol> fns_temp ? fns_temp.ToArray() : Array.Empty<FunctionSymbol>();
+            if (!fns.Any() && nsSymbol is not null && nsSymbol.Fns.Any(fn => fn.Key.Name == name))
                 fns = nsSymbol.Fns.Where(fn => fn.Key.Name == name).Select(fn => fn.Key).ToArray();
-            else if (_scope.TryLookupFn(name, out fns) && !fns.Any())
+            else if (!fns.Any() && !_scope.TryLookupFn(name, out fns))
             {
                 string bestMatch = FindBestMatch(name, _scope.GetFunctions().Select(f => f.Name));
                 _diagnostics.Report(c.Callee.Location, $"Could not find function \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
@@ -855,19 +847,22 @@ namespace Wave.src.Binding.BoundNodes
             int[] paramCounts = fns.Select(fn => fn.Parameters.Length).ToArray();
             if (fn is null)
             {
-                _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
+                if (argNodes.Any())
+                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
+                else
+                    _diagnostics.Report(new(source, TextSpan.From(c.LParen.Span.Start, c.RParen.Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
                 return new BoundError();
             }
 
             if (c.Args.Count > 0 && fn.Parameters.Length == 0)
             {
-                _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
+                _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
                 return new BoundError();
             }
 
             if (c.Args.Count > fn.Parameters.Length)
             {
-                _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, c.Args.Last().Location.Span.End)),
+                _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, c.Args.Last().Span.End)),
                     $"Wrong number of arguments; expected \"{fn.Parameters.Length}\" - got \"{c.Args.Count}\".",
                     $"\"{name}({c.Location.Source[c.Args.First().Location.StartColumn..c.Args[fn!.Parameters.Length - 1].Location.EndColumn]})\".");
 
@@ -956,11 +951,11 @@ namespace Wave.src.Binding.BoundNodes
             return new BoundIndexing(expr, index);
         }
 
-        private Symbol? BindNamespaceGetExpr(NamespaceGetExpr expr, out NamespaceSymbol? nsSymbol, NamespaceSymbol? parent = null)
+        private IEnumerable<Symbol>? BindNamespaceGetExpr(NamespaceGetExpr expr, out NamespaceSymbol? nsSymbol, NamespaceSymbol? parent = null, bool isStd = false)
         {
             nsSymbol = null;
             string name = expr.Name.Lexeme;
-            if (parent is null ? !_namespaces.ContainsKey(name) : !parent.Namespaces.Any(ns => ns.Name == name))
+            if (isStd ? !StdLib.GetAll().Any(ns => ns.Name == name) : (parent is null ? !_namespaces.ContainsKey(name) : !parent.Namespaces.Any(ns => ns.Name == name)))
             {
                 string parentStr = "";
                 NamespaceSymbol? p = parent;
@@ -977,7 +972,7 @@ namespace Wave.src.Binding.BoundNodes
                 return null;
             }
 
-            nsSymbol = parent is null ? _namespaces[name] : parent.Namespaces.Single(ns => ns.Name == name);
+            nsSymbol = isStd ? StdLib.GetAll().Single(ns => ns.Name == name) : (parent is null ? _namespaces[name] : parent.Namespaces.Single(ns => ns.Name == name));
             if (expr.Member is NameExpr n)
             {
                 string lexeme = n.Identifier.Lexeme;
@@ -988,22 +983,22 @@ namespace Wave.src.Binding.BoundNodes
                 if (nsSymbol.Classes.Any(c => c.Name == lexeme))
                 {
                     isClass = true;
-                    return nsSymbol.Classes.Single(c => c.Name == lexeme);
+                    return nsSymbol.Classes.Where(c => c.Name == lexeme);
                 }
-                else if (nsSymbol.Fns.Any(fn => fn.Key.Name == lexeme))
+                else if (nsSymbol is NamespaceSymbol_Std std ? std.Fns.Any(fn => fn.Key.Name == lexeme) : nsSymbol.Fns.Any(fn => fn.Key.Name == lexeme))
                 {
                     isFn = true;
-                    return nsSymbol.Fns.Keys.Single(fn => fn.Name == lexeme);
+                    return nsSymbol is NamespaceSymbol_Std std1 ? std1.Fns.Keys.Where(fn => fn.Name == lexeme) : nsSymbol.Fns.Keys.Where(fn => fn.Name == lexeme);
                 }
                 else if (nsSymbol.ADTs.Any(adt => adt.Name == lexeme))
                 {
                     isADT = true;
-                    return nsSymbol.ADTs.Single(adt => adt.Name == lexeme);
+                    return nsSymbol.ADTs.Where(adt => adt.Name == lexeme);
                 }
                 else if (nsSymbol.Namespaces.Any(ns => ns.Name == lexeme))
                 {
                     isNamespace = true;
-                    return nsSymbol.Namespaces.Single(ns => ns.Name == lexeme);
+                    return nsSymbol.Namespaces.Where(ns => ns.Name == lexeme);
                 }
 
                 if (!(isClass || isFn || isADT || isNamespace))
@@ -1013,7 +1008,7 @@ namespace Wave.src.Binding.BoundNodes
                 }
             }
 
-            return expr.Member is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol, nsSymbol) : null;
+            return expr.Member is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol, nsSymbol, nsSymbol is NamespaceSymbol_Std) : null;
         }
 
         private BoundExpr BindGetExpr(GetExpr g)
@@ -1021,8 +1016,8 @@ namespace Wave.src.Binding.BoundNodes
             if (g.Id is not null)
             {
                 NamespaceSymbol? nsSymbol = null;
-                Symbol? symbol = g.Id is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol) : null;
-                if (g.Id is NamespaceGetExpr && symbol is null)
+                IEnumerable<Symbol>? symbols = g.Id is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol) : null;
+                if (g.Id is NamespaceGetExpr && symbols is null)
                     return new BoundError();
 
                 string id = nsSymbol?.Name ?? ((NameExpr)g.Id).Identifier.Lexeme;
@@ -1039,19 +1034,19 @@ namespace Wave.src.Binding.BoundNodes
                 bool staticAccess = false;
                 if (!_scope.TryLookupVar(id, out VariableSymbol? variable))
                 {
-                    if (symbol is null && _scope.TryLookupClass(((NameExpr)g.Id).Identifier.Lexeme, out ClassSymbol? c_temp))
-                        symbol = c_temp;
+                    if (symbols is null && _scope.TryLookupClass(((NameExpr)g.Id).Identifier.Lexeme, out ClassSymbol? c_temp))
+                        symbols = c_temp is null ? null : new List<Symbol>() { c_temp };
 
-                    if (symbol is null || symbol.Kind != SymbolKind.Class)
+                    if (symbols is null || symbols is IEnumerable<ClassSymbol>)
                     {
-                        _diagnostics.Report(g.Id.Location, $"Could neither find instance nor class \"{(nsSymbol is null ? string.Empty : $"{nsSymbol.Name}::")}{symbol?.Name}\".");
+                        _diagnostics.Report(g.Id.Location, $"Could neither find instance nor class \"{(nsSymbol is null ? string.Empty : $"{nsSymbol.Name}::")}{symbols?.ElementAt(0).Name}\".");
                         return new BoundError();
                     }
 
                     staticAccess = true;
                 }
 
-                ClassSymbol? c = symbol is ClassSymbol c1 ? c1 : variable?.Type.NamespaceSymbol is not null ? variable!.Type.NamespaceSymbol.Classes.SingleOrDefault(c => c.Name == (staticAccess ? id : variable!.Type.Name)) : null;
+                ClassSymbol? c = symbols is ClassSymbol c1 ? c1 : variable?.Type.NamespaceSymbol is not null ? variable!.Type.NamespaceSymbol.Classes.SingleOrDefault(c => c.Name == (staticAccess ? id : variable!.Type.Name)) : null;
                 if (c is null && !_scope.TryLookupClass(staticAccess ? id : variable!.Type.Name, out c))
                 {
                     _diagnostics.Report(g.Id.Location, $"\"{(nsSymbol is null ? string.Empty : $"{nsSymbol.Name}::")}{id}\" needs to be an instance of a class.");
@@ -1145,13 +1140,13 @@ namespace Wave.src.Binding.BoundNodes
                 int paramCount = fn.Parameters.Length;
                 if (m.Args.Count > 0 && fn.Parameters.Length == 0)
                 {
-                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{m.Args.Count}\".");
+                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{m.Args.Count}\".");
                     return new BoundError();
                 }
 
                 if (m.Args.Count > fn.Parameters.Length)
                 {
-                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, m.Args.Last().Location.Span.End)),
+                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, m.Args.Last().Span.End)),
                         $"Wrong number of arguments; expected \"{fn.Parameters.Length}\" - got \"{m.Args.Count}\".",
                         $"\"{name}.{callee}({m.Location.Source[m.Args.First().Location.StartColumn..m.Args[fn!.Parameters.Length - 1].Location.EndColumn]})\".");
 
@@ -1210,13 +1205,13 @@ namespace Wave.src.Binding.BoundNodes
                 int paramCount = fn.Parameters.Length;
                 if (m.Args.Count > 0 && fn.Parameters.Length == 0)
                 {
-                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{m.Args.Count}\".");
+                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Span.End)), $"Wrong number of arguments; expected {(paramCount == 0 ? "none" : paramCount)} - got \"{m.Args.Count}\".");
                     return new BoundError();
                 }
 
                 if (m.Args.Count > fn.Parameters.Length)
                 {
-                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, m.Args.Last().Location.Span.End)),
+                    _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, m.Args.Last().Span.End)),
                         $"Wrong number of arguments; expected \"{fn.Parameters.Length}\" - got \"{m.Args.Count}\".",
                         $"\".{callee}({m.Location.Source[m.Args.First().Location.StartColumn..m.Args[fn!.Parameters.Length - 1].Location.EndColumn]})\".");
 

@@ -184,13 +184,7 @@ namespace Wave.Source.Syntax
                     break;
                 case ':':
                     ++_position;
-                    if (Current == ':')
-                    {
-                        ++_position;
-                        _kind = SyntaxKind.ColonColon;
-                    }
-                    else
-                        _kind = SyntaxKind.Colon;
+                    _kind = SyntaxKind.Colon;
                     break;
                 case '"':
                     LexString();

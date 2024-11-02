@@ -140,9 +140,9 @@ namespace Wave.Source.Syntax.Nodes
         public override SyntaxKind Kind => SyntaxKind.ClassDecl;
     }
 
-    public sealed class ADTDeclStmt : MemberNode
+    public sealed class EnumDeclStmt : MemberNode
     {
-        public ADTDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, SeparatedList<Token> members, Token rBrace)
+        public EnumDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, SeparatedList<Token> members, Token rBrace)
             : base(syntaxTree)
         {
             Keyword = keyword;
@@ -156,26 +156,6 @@ namespace Wave.Source.Syntax.Nodes
         public Token Name { get; }
         public Token LBrace { get; }
         public SeparatedList<Token> Members { get; }
-        public Token RBrace { get; }
-        public override SyntaxKind Kind => SyntaxKind.ADTDecl;
-    }
-
-    public sealed class NamespaceDeclStmt : MemberNode
-    {
-        public NamespaceDeclStmt(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, ImmutableArray<MemberNode> members, Token rBrace)
-            : base(syntaxTree)
-        {
-            Keyword = keyword;
-            Name = name;
-            LBrace = lBrace;
-            Members = members;
-            RBrace = rBrace;
-        }
-
-        public Token Keyword { get; }
-        public Token Name { get; }
-        public Token LBrace { get; }
-        public ImmutableArray<MemberNode> Members { get; }
         public Token RBrace { get; }
         public override SyntaxKind Kind => SyntaxKind.ADTDecl;
     }

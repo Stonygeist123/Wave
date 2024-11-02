@@ -13,7 +13,6 @@ namespace Wave
         private ClassInstance? _currentInstance = null;
         private readonly Dictionary<FunctionSymbol, BoundBlockStmt> _functions = new();
         private readonly Dictionary<string, ClassSymbol> _classes;
-        private readonly Dictionary<FieldSymbol, object?> _fields = new();
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new();
         private readonly Random rnd = new();
         private object? _lastValue = null;
@@ -35,11 +34,6 @@ namespace Wave
             }
 
             _classes = program.Classes.ToDictionary(c => c.Name, c => c);
-            foreach (ClassSymbol c in program.Classes)
-            {
-                foreach ((FieldSymbol f, BoundExpr expr) in c.Fields)
-                    _fields.Add(f, EvaluateExpr(expr)!);
-            }
         }
 
         public object? Evaluate()
@@ -367,7 +361,7 @@ namespace Wave
                         }
 
                         _locals.Push(locals);
-                        object? res = EvaluateStmt((c.NamespaceSymbol?.Fns ?? _functions)[c.Function]);
+                        object? res = EvaluateStmt(_functions[c.Function]);
                         _locals.Pop();
                         return res;
                     }
@@ -397,12 +391,10 @@ namespace Wave
                 }
                 case BoundInstance i:
                 {
-                    ClassSymbol c = i.NamespaceSymbol?.Classes.SingleOrDefault(c => c.Name == i.Name) ?? _classes[i.Name];
-                    IEnumerable<KeyValuePair<string, BoundBlockStmt>> fns = c.Fns.Select(fn => new KeyValuePair<string, BoundBlockStmt>(fn.Key.Name, fn.Value));
-                    IEnumerable<KeyValuePair<string, object?>> fields = c.Fields.Select(f => new KeyValuePair<string, object?>(f.Key.Name, EvaluateExpr(f.Value)));
+                    ClassSymbol c = _classes[i.Name];
                     ClassInstance instance = new(i.Name,
-                        fns.Any() ? fns.ToDictionary(x => x.Key, x => x.Value) : new(),
-                        fields.Any() ? fields.ToDictionary(x => x.Key, x => x.Value) : new());
+                        c.Fns.Select(fn => new KeyValuePair<string, BoundBlockStmt>(fn.Key.Name, fn.Value)).ToDictionary(x => x.Key, x => x.Value),
+                        c.Fields.Select(f => new KeyValuePair<string, object?>(f.Key.Name, EvaluateExpr(f.Value))).ToDictionary(x => x.Key, x => x.Value));
                     if (c.Ctor is not null)
                     {
                         Dictionary<VariableSymbol, object?> locals = new();
@@ -413,10 +405,12 @@ namespace Wave
                         }
 
                         _locals.Push(locals);
+
                         ClassInstance? before = _currentInstance;
                         _currentInstance = instance;
                         EvaluateStmt(c.Ctor.Value.Value);
                         _currentInstance = before;
+
                         _locals.Pop();
                     }
 
@@ -426,20 +420,16 @@ namespace Wave
                     return EvaluateExpr(eg.EnumSymbol.Members[eg.Member]);
                 case BoundGet g:
                 {
-                    if (!g.HasInstance)
-                        return _fields[g.Field];
-
-                    if (g.NamespaceSymbol is not null)
-                        return EvaluateExpr(g.NamespaceSymbol.Classes.Single(c => c == g.Field.ClassSymbol).Fields[g.Field]);
+                    if (g.Field.IsStatic)
+                        return EvaluateExpr(_classes[g.Field.ClassName].Fields[g.Field]);
 
                     if (g.Id is not null)
                     {
-                        if (!g.HasInstance)
-                            return _fields[g.Field];
-
-                        ClassInstance instance = g.Id.Kind == SymbolKind.GlobalVariable
-                            ? (ClassInstance)_globals.Single(v => v.Key.Name == g.Id.Name).Value!
-                            : (ClassInstance)_locals.Peek().Single(v => v.Key.Name == g.Id.Name).Value!;
+                        ClassInstance instance;
+                        if (g.Id.Kind == SymbolKind.GlobalVariable)
+                            instance = (ClassInstance)_globals.Single(v => v.Key.Name == g.Id.Name).Value!;
+                        else
+                            instance = (ClassInstance)_locals.Peek().Single(v => v.Key.Name == g.Id.Name).Value!;
                         return instance.Fields[g.Field.Name];
                     }
 
@@ -487,20 +477,21 @@ namespace Wave
                 }
                 case BoundSet s:
                 {
-                    object? v = EvaluateExpr(s.Value);
-                    if (!s.HasInstance)
-                        return _fields[s.Field] = v;
+                    if (s.Field.IsStatic)
+                        return EvaluateExpr(_classes[s.Field.ClassName].Fields[s.Field] = s.Value);
 
-                    if (s.Id is null)
-                        return _currentInstance!.Fields[s.Field.Name] = v;
-
-                    ClassInstance oldV = (ClassInstance)(s.Id.Kind == SymbolKind.GlobalVariable
-                        ? _globals
-                        : _locals.Peek())[s.Id]!;
-                    oldV.Fields[s.Field.Name] = v;
-                    return (s.Id.Kind == SymbolKind.GlobalVariable
+                    if (s.Id is not null)
+                    {
+                        ClassInstance oldV = (ClassInstance)(s.Id.Kind == SymbolKind.GlobalVariable
                             ? _globals
-                            : _locals.Peek())[s.Id] = oldV;
+                            : _locals.Peek())[s.Id]!;
+                        oldV.Fields[s.Field.Name] = EvaluateExpr(s.Value);
+                        return (s.Id.Kind == SymbolKind.GlobalVariable
+                                ? _globals
+                                : _locals.Peek())[s.Id] = oldV;
+                    }
+
+                    return _currentInstance!.Fields[s.Field.Name] = EvaluateExpr(s.Value);
                 }
                 case BoundConversion c:
                 {

@@ -90,11 +90,11 @@
     public sealed class CallExpr : ExprNode
     {
         public override SyntaxKind Kind => SyntaxKind.CallExpr;
-        public ExprNode Callee { get; }
+        public Token Callee { get; }
         public Token LParen { get; }
         public SeparatedList<ExprNode> Args { get; }
         public Token RParen { get; }
-        public CallExpr(SyntaxTree syntaxTree, ExprNode callee, Token lParen, SeparatedList<ExprNode> args, Token rParen)
+        public CallExpr(SyntaxTree syntaxTree, Token callee, Token lParen, SeparatedList<ExprNode> args, Token rParen)
             : base(syntaxTree)
         {
             Callee = callee;
@@ -142,28 +142,13 @@
         }
     }
 
-    public sealed class NamespaceGetExpr : ExprNode
-    {
-        public override SyntaxKind Kind => SyntaxKind.NamespaceGetExpr;
-        public Token Name { get; }
-        public Token ColonColon { get; }
-        public ExprNode Member { get; }
-        public NamespaceGetExpr(SyntaxTree syntaxTree, Token name, Token colonColon, ExprNode member)
-            : base(syntaxTree)
-        {
-            Name = name;
-            ColonColon = colonColon;
-            Member = member;
-        }
-    }
-
     public sealed class GetExpr : ExprNode
     {
         public override SyntaxKind Kind => SyntaxKind.GetExpr;
-        public ExprNode? Id { get; }
+        public Token? Id { get; }
         public Token Dot { get; }
         public Token Field { get; }
-        public GetExpr(SyntaxTree syntaxTree, ExprNode? id, Token dot, Token field)
+        public GetExpr(SyntaxTree syntaxTree, Token? id, Token dot, Token field)
             : base(syntaxTree)
         {
             Id = id;

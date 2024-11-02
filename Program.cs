@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Wave.IO;
 using Wave.Repl;
 using Wave.Source.Compilation;
@@ -41,9 +40,9 @@ namespace Wave
 
                 SyntaxTree syntaxTree = SyntaxTree.Parse(SourceText.From(text, path));
                 Compilation compilation = Compilation.Create(syntaxTree);
-                ImmutableArray<Diagnostic> diagnostics = compilation.Evaluate(new());
-                if (diagnostics.Any())
-                    Console.Out.WriteDiagnostics(diagnostics);
+                EvaluationResult result = compilation.Evaluate(new());
+                if (result.Diagnostics.Any())
+                    Console.Out.WriteDiagnostics(result.Diagnostics);
             }
         }
 

@@ -6,7 +6,7 @@ namespace Wave.Source.Binding
 {
     public class BoundProgram
     {
-        public BoundProgram(BoundProgram? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStmt> functions, ImmutableArray<ClassSymbol> classes, ImmutableArray<ADTSymbol> adts, ImmutableArray<NamespaceSymbol> namespaces)
+        public BoundProgram(BoundProgram? previous, FunctionSymbol? mainFn, FunctionSymbol? scriptFn, ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStmt> functions, ImmutableArray<ClassSymbol> classes, ImmutableArray<ADTSymbol> adts)
         {
             Previous = previous;
             MainFn = mainFn;
@@ -15,7 +15,6 @@ namespace Wave.Source.Binding
             Functions = functions;
             Classes = classes;
             ADTs = adts;
-            Namespaces = namespaces;
         }
 
         public BoundProgram? Previous { get; }
@@ -25,6 +24,5 @@ namespace Wave.Source.Binding
         public ImmutableDictionary<FunctionSymbol, BoundBlockStmt> Functions { get; }
         public ImmutableArray<ClassSymbol> Classes { get; }
         public ImmutableArray<ADTSymbol> ADTs { get; }
-        public ImmutableArray<NamespaceSymbol> Namespaces { get; }
     }
 }

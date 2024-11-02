@@ -131,12 +131,10 @@ namespace Wave.Source.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.CallExpr;
         public FunctionSymbol Function { get; }
         public ImmutableArray<BoundExpr> Args { get; }
-        public NamespaceSymbol? NamespaceSymbol { get; }
-        public BoundCall(FunctionSymbol function, ImmutableArray<BoundExpr> args, NamespaceSymbol? namespaceSymbol)
+        public BoundCall(FunctionSymbol function, ImmutableArray<BoundExpr> args)
         {
             Function = function;
             Args = args;
-            NamespaceSymbol = namespaceSymbol;
         }
     }
 
@@ -196,13 +194,11 @@ namespace Wave.Source.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.InstanceExpr;
         public string Name { get; }
         public ImmutableArray<BoundExpr> Args { get; }
-        public NamespaceSymbol? NamespaceSymbol { get; }
-        public BoundInstance(string name, ImmutableArray<BoundExpr> args, NamespaceSymbol? namespaceSymbol)
+        public BoundInstance(string name, ImmutableArray<BoundExpr> args)
         {
-            Type = new(name, false, true, false, namespaceSymbol);
+            Type = new(name, false, true);
             Name = name;
             Args = args;
-            NamespaceSymbol = namespaceSymbol;
         }
     }
 
@@ -213,9 +209,9 @@ namespace Wave.Source.Binding.BoundNodes
         public ADTSymbol EnumSymbol { get; }
         public string Member { get; }
 
-        public BoundEnumGet(ADTSymbol enumSymbol, string member, NamespaceSymbol? namespaceSymbol)
+        public BoundEnumGet(ADTSymbol enumSymbol, string member)
         {
-            Type = new(enumSymbol.Name, false, false, true, namespaceSymbol);
+            Type = new(enumSymbol.Name, false, false, true);
             EnumSymbol = enumSymbol;
             Member = member;
         }
@@ -227,15 +223,11 @@ namespace Wave.Source.Binding.BoundNodes
         public override BoundNodeKind Kind => BoundNodeKind.GetExpr;
         public VariableSymbol? Id { get; }
         public FieldSymbol Field { get; }
-        public NamespaceSymbol? NamespaceSymbol { get; }
-        public bool HasInstance { get; }
-        public BoundGet(VariableSymbol? id, FieldSymbol field, NamespaceSymbol? namespaceSymbol, bool hasInstance)
+        public BoundGet(VariableSymbol? id, FieldSymbol field)
         {
             Type = field.Type;
             Id = id;
             Field = field;
-            NamespaceSymbol = namespaceSymbol;
-            HasInstance = hasInstance;
         }
     }
 
@@ -262,14 +254,12 @@ namespace Wave.Source.Binding.BoundNodes
         public VariableSymbol? Id { get; }
         public FieldSymbol Field { get; }
         public BoundExpr Value { get; }
-        public bool HasInstance { get; }
-        public BoundSet(VariableSymbol? id, FieldSymbol field, BoundExpr value, bool hasInstance)
+        public BoundSet(VariableSymbol? id, FieldSymbol field, BoundExpr value)
         {
             Type = field.Type;
             Id = id;
             Field = field;
             Value = value;
-            HasInstance = hasInstance;
         }
     }
 

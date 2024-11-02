@@ -619,19 +619,18 @@ namespace Wave.Repl
 
             try
             {
-                ImmutableArray<Diagnostic> diagnostics = compilation.Evaluate(_vars);
-                if (!diagnostics.Any())
+                EvaluationResult result = compilation.Evaluate(_vars);
+                if (!result.Diagnostics.Any())
                 {
                     if ((_previous?.Functions.Length ?? 0) < compilation.Functions.Length
                         || (_previous?.Variables.Length ?? 0) < compilation.Variables.Length
                         || (_previous?.Classes.Length ?? 0) < compilation.Classes.Length
-                        || (_previous?.ADTs.Length ?? 0) < compilation.ADTs.Length
-                        || (_previous?.Namespaces.Length ?? 0) < compilation.Namespaces.Length)
+                        || (_previous?.ADTs.Length ?? 0) < compilation.ADTs.Length)
                         SaveSubmission(text);
                     _previous = compilation;
                 }
                 else
-                    Console.Out.WriteDiagnostics(diagnostics);
+                    Console.Out.WriteDiagnostics(result.Diagnostics);
                 Console.Out.WriteLine();
             }
             catch (RuntimeException ex)

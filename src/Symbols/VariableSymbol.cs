@@ -43,17 +43,17 @@
 
     public sealed class FieldSymbol : LocalVariableSymbol
     {
-        public FieldSymbol(string name, TypeSymbol type, Accessibility accessibility, bool isMut, bool isStatic, ClassSymbol classSymbol)
+        public FieldSymbol(string name, TypeSymbol type, Accessibility accessibility, bool isMut, bool isStatic, string className)
             : base(name, type, isMut)
         {
             Accessibility = accessibility;
             IsStatic = isStatic;
-            ClassSymbol = classSymbol;
+            ClassName = className;
         }
 
         public override SymbolKind Kind => SymbolKind.Parameter;
         public Accessibility Accessibility { get; }
         public bool IsStatic { get; }
-        public ClassSymbol ClassSymbol { get; }
+        public string ClassName { get; }
     }
 }

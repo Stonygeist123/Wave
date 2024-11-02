@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Data;
 using Wave.Lowering;
 using Wave.Source.Binding;
 using Wave.Source.Binding.BoundNodes;
@@ -16,17 +15,14 @@ namespace Wave.src.Binding.BoundNodes
         private readonly DiagnosticBag _diagnostics = new();
         private readonly bool _isScript;
         private FunctionSymbol? _fn;
-        private NamespaceSymbol? _namespace = null;
         private BoundScope _scope;
-        private readonly Dictionary<string, NamespaceSymbol> _namespaces;
         private readonly Stack<(LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _loopStack = new();
         private int _labelCounter = 0;
-        public Binder(bool isScript, BoundScope? parent, FunctionSymbol? fn, ImmutableArray<NamespaceSymbol> namespaces)
+        public Binder(bool isScript, BoundScope? parent, FunctionSymbol? fn)
         {
             _scope = new(parent);
             _isScript = isScript;
             _fn = fn;
-            _namespaces = namespaces.ToDictionary(n => n.Name, n => n);
             if (fn is not null)
                 foreach (ParameterSymbol param in fn.Parameters)
                     _scope.TryDeclareVar(param, true);
@@ -35,13 +31,10 @@ namespace Wave.src.Binding.BoundNodes
         public static BoundGlobalScope BindGlobalScope(bool isScript, BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
         {
             BoundScope parentScope = CreateParentScope(previous);
-            Binder binder = new(isScript, parentScope, null, previous?.Namespaces ?? ImmutableArray<NamespaceSymbol>.Empty);
-            foreach (NamespaceDeclStmt namespaceDecl in syntaxTrees.SelectMany(s => s.Root.Members).OfType<NamespaceDeclStmt>())
-                binder.BindNamespaceDecl(namespaceDecl);
-
-            IEnumerable<ADTDeclStmt> enumDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<ADTDeclStmt>();
-            foreach (ADTDeclStmt enumDecl in enumDecls)
-                binder.BindADTDecl(enumDecl);
+            Binder binder = new(isScript, parentScope, null);
+            IEnumerable<EnumDeclStmt> enumDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<EnumDeclStmt>();
+            foreach (EnumDeclStmt enumDecl in enumDecls)
+                binder.BindEnumDecl(enumDecl);
 
             IEnumerable<FnDeclStmt> fnDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<FnDeclStmt>();
             foreach (FnDeclStmt fnDecl in fnDecls)
@@ -94,23 +87,18 @@ namespace Wave.src.Binding.BoundNodes
             ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
             if (previous is not null)
                 diagnostics.InsertRange(0, previous.Diagnostics);
-            return new(previous, mainFn, scriptFn, new BoundBlockStmt(stmts.ToImmutable()), binder._scope.GetDeclaredVars(), functions, binder._scope.GetDeclaredClasses(), binder._scope.GetDeclaredEnums(), binder._namespaces.Select(n => n.Value).ToImmutableArray(), diagnostics);
+            return new(previous, mainFn, scriptFn, new BoundBlockStmt(stmts.ToImmutable()), binder._scope.GetDeclaredVars(), functions, binder._scope.GetDeclaredClasses(), binder._scope.GetDeclaredEnums(), diagnostics);
         }
 
         public static BoundProgram BindProgram(bool isScript, BoundProgram? previous, BoundGlobalScope globalScope)
         {
-            ImmutableArray<NamespaceSymbol>.Builder namespaces = ImmutableArray.CreateBuilder<NamespaceSymbol>();
-            if (previous is not null)
-                namespaces.AddRange(previous.Namespaces);
-            namespaces.AddRange(globalScope.Namespaces);
-
             BoundScope parentScope = CreateParentScope(globalScope);
             ImmutableDictionary<FunctionSymbol, BoundBlockStmt>.Builder fnBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStmt>();
             DiagnosticBag diagnostics = new();
             BoundGlobalScope? scope = globalScope;
             foreach (FunctionSymbol fn in scope.Functions)
             {
-                Binder binder = new(isScript, parentScope, fn, globalScope.Namespaces);
+                Binder binder = new(isScript, parentScope, fn);
                 BoundBlockStmt body = Lowerer.Lower(binder.BindGlobalStmt(fn.Decl!.Body));
                 if (fn.Type != TypeSymbol.Void && !AllPathsReturn(body) && fn.Decl!.Body.Kind != SyntaxKind.ExpressionStmt)
                     binder._diagnostics.Report(fn.Decl.Name.Location, $"All code paths must return a value.");
@@ -129,7 +117,7 @@ namespace Wave.src.Binding.BoundNodes
                 fnBodies.Add(globalScope.ScriptFn, Lowerer.Lower(new BoundBlockStmt(stmts)));
             }
 
-            return new(previous, globalScope.MainFn, globalScope.ScriptFn, diagnostics.ToImmutableArray(), fnBodies.ToImmutable(), scope.Classes, scope.ADTs, namespaces.ToImmutable());
+            return new(previous, globalScope.MainFn, globalScope.ScriptFn, diagnostics.ToImmutableArray(), fnBodies.ToImmutable(), scope.Classes, scope.ADTs);
         }
 
         private void BindFnDecl(FnDeclStmt decl, string? className = null, bool isStatic = false, ClassSymbol? classSymbol = null)
@@ -162,7 +150,7 @@ namespace Wave.src.Binding.BoundNodes
                     _scope.TryDeclareVar(parameter);
 
                 if (className is not null)
-                    _fn = new MethodSymbol(decl.Name.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, className, decl.Accessibility is null || decl.Accessibility.Kind == SyntaxKind.Priv ? Accessibility.Priv : Accessibility.Pub, decl, isStatic);
+                    _fn = new MethodSymbol(decl.Name.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, className, decl.Accessibility is null || decl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, decl, isStatic);
                 else
                     _fn = new FunctionSymbol(decl.Name.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, decl);
 
@@ -175,11 +163,10 @@ namespace Wave.src.Binding.BoundNodes
             }
 
             TypeSymbol fnType = decl.TypeClause?.Id.Lexeme == "void" ? TypeSymbol.Void : BindTypeClause(decl.TypeClause) ?? boundExpr?.Type ?? TypeSymbol.Void;
-            BoundBlockStmt? loweredBody = null;
             if (decl.TypeClause is null && fnType == TypeSymbol.Void)
             {
-                Binder binder = new(_isScript, null, new(decl.Name.Lexeme, parameters.ToImmutable(), fnType), _namespaces.Select(n => n.Value).ToImmutableArray());
-                ControlFlowGraph graph = CreateGraph(loweredBody = Lowerer.Lower(binder.BindStmt(decl.Body)));
+                Binder binder = new(_isScript, null, new(decl.Name.Lexeme, parameters.ToImmutable(), fnType));
+                ControlFlowGraph graph = CreateGraph(Lowerer.Lower(binder.BindStmt(decl.Body!)));
                 BasicBlockBranch? branch = graph.Start.Outgoing.FirstOrDefault(b => b.To.Stmts.Any(s => s.Kind == BoundNodeKind.RetStmt && ((BoundRetStmt)s).Value is not null));
                 if (branch is not null)
                     fnType = ((BoundRetStmt)branch.To.Stmts.First(s => s.Kind == BoundNodeKind.RetStmt)).Value!.Type;
@@ -190,8 +177,8 @@ namespace Wave.src.Binding.BoundNodes
 
             Token name = decl.Name;
             FunctionSymbol fn = className is null ? new FunctionSymbol(name.Lexeme, parameters.ToImmutable(), fnType, decl) : new MethodSymbol(name.Lexeme, parameters.ToImmutable(), fnType, className, Accessibility.Pub, decl, decl.StaticDot is not null);
-            if (!(_namespace?.Fns.TryAdd(fn, loweredBody ?? Lowerer.Lower(BindStmtInternal(decl.Body))) ?? _scope.TryDeclareFn(fn)))
-                _diagnostics.Report(name.Location, $"Function \"{(_namespace is null ? "" : $"{_namespace.Name}::")}{name.Lexeme}\" was already declared with those parameters.");
+            if (!_scope.TryDeclareFn(fn))
+                _diagnostics.Report(name.Location, $"Function \"{name.Lexeme}\" was already declared with those parameters.");
         }
 
         private void BindClassDecl(ClassDeclStmt cd)
@@ -203,10 +190,10 @@ namespace Wave.src.Binding.BoundNodes
                 BoundExpr v = BindExpr(f.Value);
                 TypeSymbol t = BindTypeClause(f.TypeClause) ?? v.Type;
                 v = BindConversion(v, t, f.Value.Location, false, t.IsArray);
-                if (!fields.TryAdd(
-                    new(f.Name.Lexeme, t, f.Accessibility is null || f.Accessibility.Kind == SyntaxKind.Priv ? Accessibility.Priv : Accessibility.Pub, f.MutKeyword is not null, f.StaticDot is not null, new(name, null, ImmutableDictionary<MethodSymbol, BoundBlockStmt>.Empty, fields, _namespace)),
-                    v))
-                    _diagnostics.Report(f.Name.Location, $"Field \"{f.Name.Lexeme}\" was already declared in class \"{(_namespace is null ? "" : $"{_namespace.Name}::")}{name}\".");
+                if (fields.Any(f1 => f1.Key.Name == f.Name.Lexeme))
+                    _diagnostics.Report(f.Name.Location, $"Field \"{f.Name.Lexeme}\" was already declared in class \"{name}\".");
+                else
+                    fields.Add(new(f.Name.Lexeme, t, f.Accessibility is null || f.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, f.MutKeyword is not null, f.StaticDot is not null, name), v);
             }
 
             KeyValuePair<CtorSymbol, BoundBlockStmt>? ctor = null;
@@ -233,21 +220,21 @@ namespace Wave.src.Binding.BoundNodes
                 }
 
                 _scope = new(_scope);
-                _scope.TryDeclareClass(new(name, null, ImmutableDictionary<MethodSymbol, BoundBlockStmt>.Empty, fields, _namespace));
+                _scope.TryDeclareClass(new(name, null, ImmutableDictionary<MethodSymbol, BoundBlockStmt>.Empty, fields));
                 foreach (ParameterSymbol parameter in ctorParameters.ToImmutable())
                     _scope.TryDeclareVar(parameter);
 
-                _fn = new MethodSymbol(string.Empty, _scope.GetDeclaredVars().Cast<ParameterSymbol>().ToImmutableArray(), TypeSymbol.Void, name, Accessibility.Pub, null);
+                _fn = new MethodSymbol("", _scope.GetDeclaredVars().Cast<ParameterSymbol>().ToImmutableArray(), TypeSymbol.Void, name, Accessibility.Pub, null);
                 BoundBlockStmt loweredCtorBody = Lowerer.Lower(BindStmtInternal(cd.Ctor.Body));
                 _fn = null;
-                ctor = new(new(ctorParameters.ToImmutable(), name, cd.Ctor.Accessibility is null || cd.Ctor.Accessibility.Kind == SyntaxKind.Priv ? Accessibility.Priv : Accessibility.Pub, cd.Ctor), loweredCtorBody);
+                ctor = new(new(ctorParameters.ToImmutable(), name, cd.Ctor.Accessibility is null || cd.Ctor.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, cd.Ctor), loweredCtorBody);
                 _scope = _scope.Parent!;
             }
 
             _scope = new BoundScope(_scope);
             foreach (FnDeclStmt fnDecl in cd.FnDecls)
                 BindFnDecl(fnDecl, name, fnDecl.StaticDot is not null,
-                    new(name, ctor, _scope.GetDeclaredFns().ToImmutableDictionary(x => (MethodSymbol)x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty)), fields, _namespace));
+                    new(name, ctor, _scope.GetDeclaredFns().ToImmutableDictionary(x => (MethodSymbol)x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty)), fields));
 
             ImmutableDictionary<MethodSymbol, BoundBlockStmt> fnsOld = _scope.GetDeclaredFns().ToImmutableDictionary(x => (MethodSymbol)x, x => new BoundBlockStmt(ImmutableArray<BoundStmt>.Empty));
             _scope = _scope.Parent!;
@@ -290,8 +277,8 @@ namespace Wave.src.Binding.BoundNodes
                     foreach ((FunctionSymbol fn, BoundBlockStmt e) in fns)
                         _scope.TryDeclareFn(fn);
 
-                    _fn = new MethodSymbol(fnName.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Priv ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic);
-                    _scope.TryDeclareClass(new(name, ctor, fns.ToImmutable(), fields, _namespace));
+                    _fn = new MethodSymbol(fnName.Lexeme, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Unknown, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic);
+                    _scope.TryDeclareClass(new(name, ctor, fns.ToImmutable(), fields));
                     boundExpr = BindExpr(((ExpressionStmt)fnDecl.Body).Expr, true);
                     _fn = null;
                     _scope = _scope.Parent!;
@@ -300,7 +287,7 @@ namespace Wave.src.Binding.BoundNodes
                 TypeSymbol fnType = fnDecl.TypeClause?.Id.Lexeme == "void" ? TypeSymbol.Void : BindTypeClause(fnDecl.TypeClause) ?? boundExpr?.Type ?? TypeSymbol.Void;
                 if (fnDecl.TypeClause is null && fnType == TypeSymbol.Void)
                 {
-                    Binder binder = new(_isScript, null, new(fnDecl.Name.Lexeme, parameters.ToImmutable(), fnType), _namespaces.Select(n => n.Value).ToImmutableArray());
+                    Binder binder = new(_isScript, null, new(fnDecl.Name.Lexeme, parameters.ToImmutable(), fnType));
                     ControlFlowGraph graph = CreateGraph(Lowerer.Lower(binder.BindStmt(fnDecl.Body!)));
                     BasicBlockBranch? branch = graph.Start.Outgoing.FirstOrDefault(b => b.To.Stmts.Any(s => s.Kind == BoundNodeKind.RetStmt && ((BoundRetStmt)s).Value is not null));
                     if (branch is not null)
@@ -315,13 +302,13 @@ namespace Wave.src.Binding.BoundNodes
                 else
                 {
                     _scope = new(_scope);
-                    _fn = new MethodSymbol(fnName.Lexeme, parameters.ToImmutable(), fnType, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Priv ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic);
-                    _scope.TryDeclareClass(new(name, ctor, fnsOld, fields, _namespace));
+                    _fn = new MethodSymbol(fnName.Lexeme, parameters.ToImmutable(), fnType, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic);
+                    _scope.TryDeclareClass(new(name, ctor, fnsOld, fields));
                     foreach (ParameterSymbol parameter in parameters.ToImmutable())
                         _scope.TryDeclareVar(parameter);
 
                     BoundBlockStmt loweredBody = Lowerer.Lower(BindStmtInternal(fnDecl.Body));
-                    fns.Add(new MethodSymbol(fnName.Lexeme, parameters.ToImmutable(), fnType, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Priv ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic), loweredBody);
+                    fns.Add(new MethodSymbol(fnName.Lexeme, parameters.ToImmutable(), fnType, name, fnDecl.Accessibility is null || fnDecl.Accessibility.Kind == SyntaxKind.Private ? Accessibility.Priv : Accessibility.Pub, fnDecl, isStatic), loweredBody);
                     if (fnType != TypeSymbol.Void && !AllPathsReturn(loweredBody) && fnDecl!.Body.Kind != SyntaxKind.ExpressionStmt)
                         _diagnostics.Report(fnName.Location, $"All code paths must return a value.");
 
@@ -330,74 +317,22 @@ namespace Wave.src.Binding.BoundNodes
                 }
             }
 
-            ClassSymbol c = new(name, ctor, fns.ToImmutable(), fields, _namespace);
-            if (_namespace is not null)
-            {
-                if (_namespace.Classes.Any(c => c.Name == name))
-                    _diagnostics.Report(cd.Name.Location, $"Class \"{_namespace.Name}::{name}\" was already declared.");
-                else
-                    _namespace.Classes.Add(c);
-            }
-            else if (!_scope.TryDeclareClass(c))
+            ClassSymbol c = new(name, ctor, fns.ToImmutable(), fields);
+            if (!_scope.TryDeclareClass(c))
                 _diagnostics.Report(cd.Name.Location, $"Class \"{name}\" was already declared.");
         }
 
-        private void BindADTDecl(ADTDeclStmt adt)
+        private void BindEnumDecl(EnumDeclStmt ed)
         {
-            string name = adt.Name.Lexeme;
-            string[] memberNames = adt.Members.Select(t => t.Lexeme).ToArray();
-            foreach (string? member in adt.Members.Select(t => t.Lexeme).GroupBy(x => x).Where(g => g.Count() > 1).Select(y => y.Key).ToList())
-                _diagnostics.Report(adt.Members.Last(t => t.Lexeme == member).Location, $"Duplicated member \"{member}\" in type \"{name}\".");
-
+            string name = ed.Name.Lexeme;
             int i = 0;
-            ImmutableDictionary<string, BoundExpr> members = memberNames.GroupBy(p => p).ToDictionary(id => id.Key, _ => (BoundExpr)new BoundLiteral(i++)).ToImmutableDictionary();
-            if (_namespace is not null)
-            {
-                if (_namespace.ADTs.Any(adt => adt.Name == name))
-                    _diagnostics.Report(adt.Name.Location, $"Class \"{_namespace.Name}::{name}\" was already declared.");
-                else
-                    _namespace.ADTs.Add(new(name, members));
-            }
+            string[] memberNames = ed.Members.Select(t => t.Lexeme).ToArray();
+            foreach (string? member in ed.Members.Select(t => t.Lexeme).GroupBy(x => x).Where(g => g.Count() > 1).Select(y => y.Key).ToList())
+                _diagnostics.Report(ed.Members.Last(t => t.Lexeme == member).Location, $"Duplicated member \"{member}\" in type \"{name}\".");
+
+            ImmutableDictionary<string, BoundExpr> members = memberNames.ToDictionary(id => id, _ => (BoundExpr)new BoundLiteral(i++)).ToImmutableDictionary();
             if (!_scope.TryDeclareADT(new(name, members)))
-                _diagnostics.Report(adt.Name.Location, $"Type \"{name}\" was already declared.");
-        }
-
-        private void BindNamespaceDecl(NamespaceDeclStmt nd)
-        {
-            string name = nd.Name.Lexeme;
-            _scope = new(_scope);
-            _namespace = new(name, new(), new(), new(), new(), _namespace);
-            foreach (MemberNode m in nd.Members)
-            {
-                if (m is FnDeclStmt fn)
-                    BindFnDecl(fn);
-                else if (m is ClassDeclStmt c)
-                    BindClassDecl(c);
-                else if (m is ADTDeclStmt adt)
-                    BindADTDecl(adt);
-                else if (m is NamespaceDeclStmt n)
-                    BindNamespaceDecl(n);
-            };
-
-            NamespaceSymbol nsSymbol = new(name,
-                _namespace.Classes.ToList(),
-                _namespace.Fns,
-                _namespace.ADTs,
-                _namespace.Namespaces, _namespace.Parent);
-            _namespace = _namespace.Parent;
-            _scope = _scope.Parent!;
-
-            if (_namespace is not null)
-            {
-                if (_namespace.Namespaces.Any(n => n.Name == name))
-                    _diagnostics.Report(nd.Name.Location, $"Namespace \"{_namespace.Name}::{name}\" was already declared.");
-                else
-                    _namespace.Namespaces.Add(nsSymbol);
-            }
-            else if (_namespaces.Any(n => n.Key == name))
-                _diagnostics.Report(nd.Name.Location, $"Namespace \"{name}\" was already declared.");
-            else
-                _namespaces.Add(name, nsSymbol);
+                _diagnostics.Report(ed.Name.Location, $"Type \"{name}\" was already declared.");
         }
 
         private static BoundScope CreateParentScope(BoundGlobalScope? previous)
@@ -768,21 +703,15 @@ namespace Wave.src.Binding.BoundNodes
 
         private BoundExpr BindCallExpr(CallExpr c)
         {
-            NamespaceSymbol? nsSymbol = null;
-            Symbol? symbol = c.Callee is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol) : null;
-            if (c.Callee is NamespaceGetExpr && symbol is null)
-                return new BoundError();
-
-            string name = c.Callee is NameExpr n ? n.Identifier.Lexeme : symbol!.Name ?? string.Empty;
-            if (symbol is null && c.Args.Count == 1 && LookupType(name) is TypeSymbol type && !type.IsClass && !type.IsADT)
+            if (c.Args.Count == 1 && LookupType(c.Callee.Lexeme) is TypeSymbol type && !type.IsClass && !type.IsADT)
                 return BindConversion(c.Args[0], type, true, true);
 
+            string name = c.Callee.Lexeme;
             SourceText source = c.SyntaxTree.Source;
             ImmutableArray<Node> argNodes = c.Args.GetWithSeps();
             BoundExpr[] args = c.Args.Select(a => BindExpr(a)).ToArray();
             ImmutableArray<BoundExpr>.Builder ctorBoundArgs = ImmutableArray.CreateBuilder<BoundExpr>();
-            ClassSymbol? cs = (symbol?.Kind == SymbolKind.Class ? (ClassSymbol)symbol : null) ?? null;
-            if (cs is not null || _scope.TryLookupClass(name, out cs))
+            if (_scope.TryLookupClass(name, out ClassSymbol? cs))
             {
                 CtorSymbol? ctor = cs!.Ctor?.Key;
                 if (ctor is not null && ctor.Accessibility == Accessibility.Priv && (_fn is null || _fn is not MethodSymbol m || m.ClassName != name))
@@ -836,13 +765,10 @@ namespace Wave.src.Binding.BoundNodes
                     }
                 }
 
-                return new BoundInstance(name, args.ToImmutableArray(), nsSymbol);
+                return new BoundInstance(name, args.ToImmutableArray());
             }
 
-            FunctionSymbol[] fns = Array.Empty<FunctionSymbol>();
-            if (nsSymbol is not null && nsSymbol.Fns.Any(fn => fn.Key.Name == name))
-                fns = nsSymbol.Fns.Where(fn => fn.Key.Name == name).Select(fn => fn.Key).ToArray();
-            else if (_scope.TryLookupFn(name, out fns) && !fns.Any())
+            if (!_scope.TryLookupFn(name, out FunctionSymbol[] fns) && !fns.Any())
             {
                 string bestMatch = FindBestMatch(name, _scope.GetFunctions().Select(f => f.Name));
                 _diagnostics.Report(c.Callee.Location, $"Could not find function \"{name}\".", bestMatch != string.Empty ? $"Did you mean \"{bestMatch}\"." : null);
@@ -859,13 +785,13 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundError();
             }
 
-            if (c.Args.Count > 0 && fn.Parameters.Length == 0)
+            if (c.Args.Count > 0 && fn!.Parameters.Length == 0)
             {
                 _diagnostics.Report(new(source, TextSpan.From(argNodes.First().Span.Start, argNodes.Last().Location.Span.End)), $"Wrong number of arguments; expected {(paramCounts.All(l => l == 0) ? "none" : string.Join(", ", paramCounts))} - got \"{c.Args.Count}\".");
                 return new BoundError();
             }
 
-            if (c.Args.Count > fn.Parameters.Length)
+            if (c.Args.Count > fn!.Parameters.Length)
             {
                 _diagnostics.Report(new(source, TextSpan.From(argNodes.First(a => a.Span.Start != argNodes[fn.Parameters.Length - 1].Span.Start).Span.Start, c.Args.Last().Location.Span.End)),
                     $"Wrong number of arguments; expected \"{fn.Parameters.Length}\" - got \"{c.Args.Count}\".",
@@ -874,7 +800,7 @@ namespace Wave.src.Binding.BoundNodes
                 return new BoundError();
             }
 
-            if (c.Args.Count == 0 && fn.Parameters.Length > 0)
+            if (c.Args.Count == 0 && fn!.Parameters.Length > 0)
             {
                 _diagnostics.Report(new(source, TextSpan.From(c.LParen.Span.Start, c.RParen.Span.End)), $"Wrong number of arguments; expected \"{fn.Parameters.Length}\" - got none.");
                 return new BoundError();
@@ -896,7 +822,7 @@ namespace Wave.src.Binding.BoundNodes
                     $"\"{source[..rawArg.Span.Start]}{param.Type}({rawArg.Location.Text}){source[rawArg.Span.End..]}\""));
             }
 
-            return new BoundCall(fn, boundArgs.ToImmutable(), nsSymbol);
+            return new BoundCall(fn, boundArgs.ToImmutable());
         }
 
         private BoundExpr BindArrayExpr(ArrayExpr a)
@@ -938,7 +864,7 @@ namespace Wave.src.Binding.BoundNodes
 
         private BoundExpr BindIndexingExpr(IndexingExpr i)
         {
-            if (i.Expr is NameExpr n && _scope.TryLookupADT(n.Identifier.Lexeme, out ADTSymbol? e))
+            if (i.Expr is NameExpr n && _scope.TryLookupEnum(n.Identifier.Lexeme, out ADTSymbol? e))
             {
                 BoundExpr member = BindExprInternal(i.Index);
                 if (member.Type.Name == e!.Name && !member.Type.IsArray && member.Type.IsADT)
@@ -956,111 +882,35 @@ namespace Wave.src.Binding.BoundNodes
             return new BoundIndexing(expr, index);
         }
 
-        private Symbol? BindNamespaceGetExpr(NamespaceGetExpr expr, out NamespaceSymbol? nsSymbol, NamespaceSymbol? parent = null)
-        {
-            nsSymbol = null;
-            string name = expr.Name.Lexeme;
-            if (parent is null ? !_namespaces.ContainsKey(name) : !parent.Namespaces.Any(ns => ns.Name == name))
-            {
-                string parentStr = "";
-                NamespaceSymbol? p = parent;
-                while (p is not null)
-                {
-                    parentStr += p.Name;
-                    if (p.Parent is not null)
-                        parentStr += "::";
-
-                    p = p.Parent;
-                }
-
-                _diagnostics.Report(expr.Name.Location, $"Could not find namespace \"{name}\"{(parent is null ? string.Empty : $" in namespace \"{parentStr}\"")}.");
-                return null;
-            }
-
-            nsSymbol = parent is null ? _namespaces[name] : parent.Namespaces.Single(ns => ns.Name == name);
-            if (expr.Member is NameExpr n)
-            {
-                string lexeme = n.Identifier.Lexeme;
-                bool isClass = false;
-                bool isFn = false;
-                bool isADT = false;
-                bool isNamespace = false;
-                if (nsSymbol.Classes.Any(c => c.Name == lexeme))
-                {
-                    isClass = true;
-                    return nsSymbol.Classes.Single(c => c.Name == lexeme);
-                }
-                else if (nsSymbol.Fns.Any(fn => fn.Key.Name == lexeme))
-                {
-                    isFn = true;
-                    return nsSymbol.Fns.Keys.Single(fn => fn.Name == lexeme);
-                }
-                else if (nsSymbol.ADTs.Any(adt => adt.Name == lexeme))
-                {
-                    isADT = true;
-                    return nsSymbol.ADTs.Single(adt => adt.Name == lexeme);
-                }
-                else if (nsSymbol.Namespaces.Any(ns => ns.Name == lexeme))
-                {
-                    isNamespace = true;
-                    return nsSymbol.Namespaces.Single(ns => ns.Name == lexeme);
-                }
-
-                if (!(isClass || isFn || isADT || isNamespace))
-                {
-                    _diagnostics.Report(expr.Member.Location, $"Could not find \"{lexeme}\" in namespace \"{name}\".");
-                    return null;
-                }
-            }
-
-            return expr.Member is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol, nsSymbol) : null;
-        }
-
         private BoundExpr BindGetExpr(GetExpr g)
         {
             if (g.Id is not null)
             {
-                NamespaceSymbol? nsSymbol = null;
-                Symbol? symbol = g.Id is NamespaceGetExpr ns ? BindNamespaceGetExpr(ns, out nsSymbol) : null;
-                if (g.Id is NamespaceGetExpr && symbol is null)
-                    return new BoundError();
-
-                string id = nsSymbol?.Name ?? ((NameExpr)g.Id).Identifier.Lexeme;
-                ADTSymbol? adt = nsSymbol?.ADTs.SingleOrDefault(adt => adt.Name == id);
-                if (adt is not null || _scope.TryLookupADT(id, out adt))
+                string id = g.Id.Lexeme;
+                if (_scope.TryLookupEnum(id, out ADTSymbol? e))
                 {
-                    if (adt!.Members.Any(f => f.Key == g.Field.Lexeme))
-                        return new BoundEnumGet(adt!, g.Field.Lexeme, nsSymbol);
+                    if (e!.Members.Any(f => f.Key == g.Field.Lexeme))
+                        return new BoundEnumGet(e!, g.Field.Lexeme);
 
-                    _diagnostics.Report(g.Field.Location, $"Could not find member \"{g.Field.Lexeme}\" on type \"{id}{(nsSymbol is null ? $"::{adt.Name}" : string.Empty)}\".");
+                    _diagnostics.Report(g.Field.Location, $"Could not find member \"{g.Field.Lexeme}\" on type \"{id}\".");
                     return new BoundError();
                 }
 
                 bool staticAccess = false;
                 if (!_scope.TryLookupVar(id, out VariableSymbol? variable))
                 {
-                    if (symbol is null && _scope.TryLookupClass(((NameExpr)g.Id).Identifier.Lexeme, out ClassSymbol? c_temp))
-                        symbol = c_temp;
-
-                    if (symbol is null || symbol.Kind != SymbolKind.Class)
+                    if (!_scope.TryLookupClass(id, out _))
                     {
-                        _diagnostics.Report(g.Id.Location, $"Could neither find instance nor class \"{(nsSymbol is null ? string.Empty : $"{nsSymbol.Name}::")}{symbol?.Name}\".");
+                        _diagnostics.Report(g.Id.Location, $"Could not find instance \"{id}\".");
                         return new BoundError();
                     }
 
                     staticAccess = true;
                 }
 
-                ClassSymbol? c = symbol is ClassSymbol c1 ? c1 : variable?.Type.NamespaceSymbol is not null ? variable!.Type.NamespaceSymbol.Classes.SingleOrDefault(c => c.Name == (staticAccess ? id : variable!.Type.Name)) : null;
-                if (c is null && !_scope.TryLookupClass(staticAccess ? id : variable!.Type.Name, out c))
+                if (!_scope.TryLookupClass(staticAccess ? id : variable!.Type.Name, out ClassSymbol? c))
                 {
-                    _diagnostics.Report(g.Id.Location, $"\"{(nsSymbol is null ? string.Empty : $"{nsSymbol.Name}::")}{id}\" needs to be an instance of a class.");
-                    return new BoundError();
-                }
-
-                if (!c!.Fields.Any(f => f.Key.Name == g.Field.Lexeme))
-                {
-                    _diagnostics.Report(g.Field.Location, $"Could not find field \"{g.Field.Lexeme}\" in class \"{((c.NamespaceSymbol ?? nsSymbol) is null ? string.Empty : $"{(c.NamespaceSymbol ?? nsSymbol)!.Name}::")}{c.Name}\".");
+                    _diagnostics.Report(g.Id.Location, $"\"{id}\" needs to be an instance of a class.");
                     return new BoundError();
                 }
 
@@ -1071,10 +921,7 @@ namespace Wave.src.Binding.BoundNodes
                     return new BoundError();
                 }
 
-                return new BoundGet(variable,
-                    f,
-                    nsSymbol ?? (variable is not null ? (variable!.Type.NamespaceSymbol is not null ? _namespaces.Select(n => n.Value).SingleOrDefault(n => n.Name == variable!.Type.NamespaceSymbol!.Name) : null) : null),
-                    !staticAccess);
+                return new BoundGet(variable, f);
             }
             else
             {
@@ -1098,7 +945,7 @@ namespace Wave.src.Binding.BoundNodes
                     return new BoundError();
                 }
 
-                return new BoundGet(null, f, _namespace, true);
+                return new BoundGet(null, f);
             }
         }
 
@@ -1287,18 +1134,18 @@ namespace Wave.src.Binding.BoundNodes
 
                 if (!staticAccess && !variable!.IsMut)
                 {
-                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign field \"{s.Field.Lexeme}\" of constant instance \"{variable.Name}\".");
+                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign the field \"{s.Field.Lexeme}\" of a constant instance.");
                     return new BoundError();
                 }
 
                 if (!f.IsMut)
                 {
-                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign constant field \"{s.Field.Lexeme}\" of an instance of class \"{c.Name}\".");
+                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign the constant field \"{s.Field.Lexeme}\" of an instance of class \"{c.Name}\".");
                     return new BoundError();
                 }
 
                 BoundExpr v = BindConversion(s.Value, f.Type, false, f.Type.IsArray);
-                return new BoundSet(variable, f, v, !staticAccess);
+                return new BoundSet(variable, f, v);
             }
             else
             {
@@ -1328,14 +1175,8 @@ namespace Wave.src.Binding.BoundNodes
                     return new BoundError();
                 }
 
-                if (_namespace is not null && _fn is MethodSymbol m2 && f.IsStatic)
-                {
-                    _diagnostics.Report(new(s.Location.Source, TextSpan.From(s.EqToken.Span.Start, s.Value.Span.End)), $"Cannot reassign static field of class \"{m2.ClassName}\" while interacting with a namespace.");
-                    return new BoundError();
-                }
-
                 BoundExpr v = BindConversion(s.Value, f.Type, false, f.Type.IsArray);
-                return new BoundSet(null, f, v, true);
+                return new BoundSet(null, f, v);
             }
         }
 
@@ -1380,6 +1221,6 @@ namespace Wave.src.Binding.BoundNodes
             "float" => TypeSymbol.Float,
             "string" => TypeSymbol.String,
             _ => null,
-        } ?? (_scope.TryLookupClass(name, out _) ? new(name, false, true) : (_scope.TryLookupADT(name, out _) ? new(name, false, false, true) : null));
+        } ?? (_scope.TryLookupClass(name, out _) ? new(name, false, true) : (_scope.TryLookupEnum(name, out _) ? new(name, false, false, true) : null));
     }
 }

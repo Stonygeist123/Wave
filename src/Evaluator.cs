@@ -15,6 +15,7 @@ namespace Wave
         private readonly Dictionary<string, ClassSymbol> _classes;
         private readonly Dictionary<FieldSymbol, object?> _fields = new();
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new();
+        private readonly Random rnd = new();
         private object? _lastValue = null;
         public Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables)
         {
@@ -335,15 +336,27 @@ namespace Wave
                 }
                 case BoundCall c:
                 {
-                    if (c.Function.IsStd)
+                    if (c.Function == BuiltInFunctions.Input)
+                        return Console.ReadLine()!;
+                    else if (c.Function == BuiltInFunctions.PrintS || c.Function == BuiltInFunctions.PrintI || c.Function == BuiltInFunctions.PrintF || c.Function == BuiltInFunctions.PrintB)
                     {
-                        // IO
-                        if ((NamespaceSymbol_Std)c.NamespaceSymbol! == StdLib.IO)
-                            return StdLib.IO.Fns[c.Function](c.Args.Select(a => EvaluateExpr(a)!).ToArray());
-                        // Math
-                        if ((NamespaceSymbol_Std)c.NamespaceSymbol! == StdLib.Math)
-                            return StdLib.Math.Fns[c.Function](c.Args.Select(a => EvaluateExpr(a)!).ToArray());
+                        Console.WriteLine(EvaluateExpr(c.Args[0]).Stringify());
+                        return null;
                     }
+                    else if (c.Function == BuiltInFunctions.PrintEmpty)
+                    {
+                        Console.WriteLine();
+                        return null;
+                    }
+                    else if (c.Function == BuiltInFunctions.Clear)
+                    {
+                        Console.Clear();
+                        return null;
+                    }
+                    else if (c.Function == BuiltInFunctions.Random)
+                        return rnd.Next((int?)EvaluateExpr(c.Args[0]) ?? 1);
+                    else if (c.Function == BuiltInFunctions.Range)
+                        return Enumerable.Range((int?)EvaluateExpr(c.Args[0]) ?? 0, (int?)EvaluateExpr(c.Args[1]) ?? 1).ToArray();
                     else
                     {
                         Dictionary<VariableSymbol, object?> locals = new();

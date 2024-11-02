@@ -79,10 +79,10 @@ namespace Wave.Source.Compilation
                             yield return symbol;
                     }
 
-                List<NamespaceSymbol_Std?> stdLib = typeof(StdLib).GetFields().Where(fi => fi.FieldType == typeof(NamespaceSymbol_Std)).Select(fi => (NamespaceSymbol_Std?)fi.GetValue(null)).ToList();
-                foreach (NamespaceSymbol_Std? std in stdLib)
-                    if (std is not null && seenNames.Add(std.Name))
-                        yield return std;
+                List<FunctionSymbol?> builtInFns = typeof(BuiltInFunctions).GetFields().Where(fi => fi.FieldType == typeof(FunctionSymbol)).Select(fi => (FunctionSymbol?)fi.GetValue(null)).ToList();
+                foreach (FunctionSymbol? biFn in builtInFns)
+                    if (biFn is not null && seenNames.Add(biFn.Name))
+                        yield return biFn;
 
                 submission = submission.Previous;
             }
